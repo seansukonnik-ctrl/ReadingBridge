@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Reading Bridge — 读桥</title>
+<style>
+  :root {
+    --paper: #f6f1e7; --ink: #2b2620; --ink-soft: #5c5448;
+    --jade: #3c6e5e; --jade-deep: #244a3e; --rust: #a3492f; --line: #ddd2bd; --card-bg: #fffdf9;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin:0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--paper);
+    background-image: radial-gradient(ellipse at top left, rgba(60,110,94,0.07), transparent 55%), radial-gradient(ellipse at bottom right, rgba(163,73,47,0.06), transparent 55%);
+    color: var(--ink); min-height:100vh;
+  }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 50px 20px 60px; }
+  h1 { font-family: Georgia, serif; font-size: 34px; color: var(--jade-deep); margin: 0 0 4px; text-align:center; }
+  h1 .cn { color: var(--rust); font-style: italic; margin-left: 8px; }
+  .subtitle { text-align:center; color: var(--ink-soft); font-size: 14px; margin-bottom: 40px; }
+
+  .grid { display:grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 560px) { .grid { grid-template-columns: 1fr; } }
+
+  .tool-card { display:block; background: var(--card-bg); border: 1px solid var(--line); border-radius: 12px; padding: 22px; text-decoration:none; color: var(--ink); transition: transform 0.15s ease, box-shadow 0.15s ease; }
+  .tool-card:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(43,38,32,0.08); }
+  .tool-icon { font-size: 30px; margin-bottom: 10px; }
+  .tool-name { font-size: 16px; font-weight: 700; color: var(--jade-deep); margin-bottom: 6px; }
+  .tool-desc { font-size: 12.5px; color: var(--ink-soft); line-height: 1.5; }
+
+  .note { margin-top: 36px; background: rgba(255,255,255,0.5); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; font-size: 12.5px; color: var(--ink-soft); line-height: 1.6; }
+  .note b { color: var(--ink); }
+</style>
+</head>
+<body data-reading-bridge-suite="true">
+<div class="wrap">
+  <h1>Reading Bridge<span class="cn">读桥</span></h1>
+  <div class="subtitle">Локальный набор инструментов для изучения китайского</div>
+
+  <div class="grid">
+    <a class="tool-card" href="reading-bridge.html">
+      <div class="tool-icon">📖</div>
+      <div class="tool-name">Reading Bridge</div>
+      <div class="tool-desc">Вставляй английский текст — знакомые слова и фразы заменятся на pinyin, со звуком.</div>
+    </a>
+    <a class="tool-card" href="dashboard.html">
+      <div class="tool-icon">📊</div>
+      <div class="tool-name">Прогресс</div>
+      <div class="tool-desc">Все слова и фразы, что ты встречал. Повторение почти забытого по расписанию.</div>
+    </a>
+    <a class="tool-card" href="tone-trainer.html">
+      <div class="tool-icon">🎧</div>
+      <div class="tool-name">Тон-тренажёр</div>
+      <div class="tool-desc">На слух: угадай тон или значение. Использует тот же словарь, что и остальное.</div>
+    </a>
+    <a class="tool-card" href="village.html">
+      <div class="tool-icon">⛩️</div>
+      <div class="tool-name">Моя деревня</div>
+      <div class="tool-desc">Долгосрочная прогрессия: 5 построек = 5 фаз программы. Растёт сама, без наказаний за пропуски.</div>
+    </a>
+  </div>
+
+  <div class="note" id="backup-panel">
+    <b>Бэкап всех данных этого набора</b><br />
+    <div style="display:flex; gap:10px; margin-top:10px; flex-wrap:wrap;">
+      <button id="backup-export-btn" style="padding:9px 16px; border-radius:6px; border:1px solid var(--jade-deep); background:var(--jade-deep); color:var(--paper); cursor:pointer; font-size:13px; font-weight:600;">💾 Скачать бэкап (.json)</button>
+      <label style="padding:9px 16px; border-radius:6px; border:1px solid var(--jade-deep); background:transparent; color:var(--jade-deep); cursor:pointer; font-size:13px; font-weight:600;">
+        📂 Восстановить из файла
+        <input type="file" id="backup-import-input" accept=".json" style="display:none;" />
+      </label>
+    </div>
+    <div id="backup-msg" style="margin-top:8px; color: var(--jade-deep); font-size:12.5px;"></div>
+  </div>
+
+  <div class="note" id="ext-bridge-panel">
+    <b>🔗 Связь с расширением Chrome</b><br />
+    <div style="font-size:12px; margin:8px 0;">Работает только если эта страница открыта через локальный сервер (<code>http://localhost</code>), не через двойной клик по файлу. ID расширения смотри в <code>chrome://extensions</code> (нужен Developer mode).</div>
+    <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+      <input type="text" id="ext-id-input" placeholder="ID расширения" style="padding:8px 10px; border:1px solid var(--line); border-radius:6px; font-size:12.5px; flex:1; min-width:200px;" />
+      <button id="ext-sync-btn" style="padding:8px 14px; border-radius:6px; border:1px solid var(--jade-deep); background:var(--jade-deep); color:var(--paper); cursor:pointer; font-size:12.5px; font-weight:600;">Синхронизировать словарь</button>
+    </div>
+    <div id="ext-sync-msg" style="margin-top:8px; font-size:12.5px; color:var(--jade-deep);"></div>
+  </div>
+
+  <div class="note">
+    <b>Как это работает вместе:</b> все четыре инструмента используют один и тот же <code>localStorage</code> этого браузера — слово, добавленное в Reading Bridge, сразу видно в Прогрессе и Тон-тренажёре, а освоенные слова автоматически подпитывают Деревню.<br /><br />
+    <b>Важно:</b> это работает надёжно в Chrome при открытии файлов напрямую (двойным кликом). Если что-то не подхватывается между страницами — открой папку через локальный сервер: в терминале перейди в эту папку и запусти <code>python3 -m http.server 8000</code>, затем открой <code>http://localhost:8000</code> в браузере. Так гарантированно все страницы будут в одном хранилище независимо от браузера.
+  </div>
+</div>
+
+<script>
+  const EXT_ID_KEY = "zh-extension-id";
+  const savedExtId = localStorage.getItem(EXT_ID_KEY);
+  if (savedExtId) document.getElementById("ext-id-input").value = savedExtId;
+
+  document.getElementById("ext-sync-btn").addEventListener("click", () => {
+    const msg = document.getElementById("ext-sync-msg");
+    const extId = document.getElementById("ext-id-input").value.trim();
+    if (!extId) { msg.textContent = "Впиши ID расширения из chrome://extensions."; return; }
+    localStorage.setItem(EXT_ID_KEY, extId);
+
+    if (!window.chrome || !chrome.runtime || !chrome.runtime.sendMessage) {
+      msg.textContent = "chrome.runtime недоступен — открой эту страницу через http://localhost, не через файл.";
+      return;
+    }
+
+    msg.textContent = "Соединяюсь...";
+    chrome.runtime.sendMessage(extId, { action: "getState" }, (response) => {
+      if (chrome.runtime.lastError || !response) {
+        msg.textContent = "Не удалось связаться с расширением: " + (chrome.runtime.lastError ? chrome.runtime.lastError.message : "нет ответа") + ". Проверь ID и что страница открыта через localhost.";
+        return;
+      }
+
+      // merge extension's custom words/phrases INTO this page's localStorage
+      let localWords = {}, localPhrases = {};
+      try { localWords = JSON.parse(localStorage.getItem("zh-reader-custom-words") || "{}"); } catch(e){}
+      try { localPhrases = JSON.parse(localStorage.getItem("zh-reader-custom-phrases") || "{}"); } catch(e){}
+      const mergedWords = Object.assign({}, response.customWords || {}, localWords);
+      const mergedPhrases = Object.assign({}, response.customPhrases || {}, localPhrases);
+      localStorage.setItem("zh-reader-custom-words", JSON.stringify(mergedWords));
+      localStorage.setItem("zh-reader-custom-phrases", JSON.stringify(mergedPhrases));
+
+      // push the merged set back to the extension too, so both sides end up equal
+      chrome.runtime.sendMessage(extId, { action: "mergeWords", customWords: mergedWords, customPhrases: mergedPhrases }, (res2) => {
+        const wCount = Object.keys(mergedWords).length;
+        const pCount = Object.keys(mergedPhrases).length;
+        msg.textContent = `Готово: ${wCount} слов, ${pCount} фраз теперь одинаковы в обеих сторонах.`;
+      });
+    });
+  });
+</script>
+
+<script>
+  document.getElementById("backup-export-btn").addEventListener("click", () => {
+    const data = {};
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      data[key] = localStorage.getItem(key);
+    }
+    const payload = { exportedAt: new Date().toISOString(), data };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    const dateStr = new Date().toISOString().slice(0, 10);
+    a.href = url;
+    a.download = `reading-bridge-backup-${dateStr}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    document.getElementById("backup-msg").textContent = "Скачано. Храни этот файл где-нибудь надёжно.";
+  });
+
+  document.getElementById("backup-import-input").addEventListener("change", (e) => {
+    const file = e.target.files[0];
+    const msg = document.getElementById("backup-msg");
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const parsed = JSON.parse(ev.target.result);
+        const data = parsed.data || parsed; // tolerate raw localStorage dumps too
+        let count = 0;
+        Object.keys(data).forEach(key => {
+          localStorage.setItem(key, data[key]);
+          count++;
+        });
+        msg.textContent = `Восстановлено ${count} записей. Открой любой инструмент, чтобы увидеть данные.`;
+      } catch (err) {
+        msg.textContent = "Не получилось прочитать файл — убедись, что это тот самый бэкап .json.";
+      }
+    };
+    reader.readAsText(file);
+  });
+</script>
+</body>
+</html>

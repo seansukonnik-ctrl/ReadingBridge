@@ -1,0 +1,530 @@
+<script>
+if (!window.storage) {
+  window.storage = {
+    async get(key){ try { const v = localStorage.getItem(key); return v !== null ? { key, value: v } : null; } catch(e){ return null; } },
+    async set(key, value){ try { localStorage.setItem(key, value); return { key, value }; } catch(e){ return null; } },
+    async delete(key){ try { localStorage.removeItem(key); return { key, deleted: true }; } catch(e){ return null; } },
+    async list(prefix){ try { const keys = Object.keys(localStorage).filter(k => !prefix || k.startsWith(prefix)); return { keys }; } catch(e){ return null; } }
+  };
+}
+</script>
+<div id="zh-dash-root" data-reading-bridge-suite="true"></div>
+<style>
+#zh-dash-root {
+  --paper: #f6f1e7;
+  --ink: #2b2620;
+  --ink-soft: #5c5448;
+  --jade: #3c6e5e;
+  --jade-deep: #244a3e;
+  --rust: #a3492f;
+  --line: #ddd2bd;
+  --pinyin-bg: #e3ece7;
+  --phrase-bg: #f0e3d6;
+  --due-bg: #f7e2df;
+  font-family: 'Iowan Old Style', 'Palatino Linotype', Georgia, serif;
+  color: var(--ink);
+  background: var(--paper);
+  background-image:
+    radial-gradient(ellipse at top left, rgba(60,110,94,0.06), transparent 50%),
+    radial-gradient(ellipse at bottom right, rgba(163,73,47,0.05), transparent 55%);
+  padding: 28px 22px 40px;
+  border-radius: 6px;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+#zh-dash-root * { box-sizing: border-box; }
+.zd-sans { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+
+.zd-header { display:flex; justify-content:space-between; align-items:flex-end; gap:16px; flex-wrap:wrap; border-bottom: 1px solid var(--line); padding-bottom: 16px; margin-bottom: 20px; }
+.zd-title { font-size: 26px; font-weight: 600; color: var(--jade-deep); }
+.zd-title .accent { color: var(--rust); font-style: italic; }
+.zd-sub { font-size: 12.5px; color: var(--ink-soft); margin-top: 4px; }
+
+.zd-stats { display:flex; gap: 18px; }
+.zd-stat { text-align:right; }
+.zd-stat-num { font-size: 22px; font-weight: 700; color: var(--jade-deep); line-height:1; }
+.zd-stat-num.due { color: var(--rust); }
+.zd-stat-label { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-soft); }
+
+.zd-panel { background: rgba(255,255,255,0.45); border: 1px solid var(--line); border-radius: 8px; padding: 18px; margin-bottom: 16px; }
+
+.zd-review-cta { display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap; }
+.zd-review-cta p { margin:0; font-size:14px; }
+.zd-btn { font-size: 13px; font-weight: 600; padding: 10px 18px; border-radius: 6px; border: 1px solid var(--jade-deep); background: var(--jade-deep); color: var(--paper); cursor: pointer; }
+.zd-btn:hover { background: var(--jade); border-color: var(--jade); }
+.zd-btn:disabled { opacity: 0.4; cursor: default; }
+.zd-btn.secondary { background: transparent; color: var(--jade-deep); }
+.zd-btn.secondary:hover { background: var(--pinyin-bg); }
+.zd-btn.ghost { background: transparent; border-color: var(--line); color: var(--ink-soft); }
+
+.zd-search { width: 100%; padding: 8px 12px; border: 1px solid var(--line); border-radius: 6px; font-size: 13px; background: #fffdf9; margin-bottom: 12px; }
+
+table.zd-table { width:100%; border-collapse: collapse; font-size: 12.5px; }
+table.zd-table th { text-align:left; padding: 6px 8px; border-bottom: 2px solid var(--line); color: var(--ink-soft); font-weight:600; cursor: pointer; user-select:none; }
+table.zd-table th:hover { color: var(--jade-deep); }
+table.zd-table td { padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+table.zd-table tr.due-row { background: var(--due-bg); }
+.zd-badge { font-size: 10px; text-transform: uppercase; padding: 1px 6px; border-radius: 8px; background: var(--pinyin-bg); color: var(--jade-deep); }
+.zd-badge.phrase { background: var(--phrase-bg); color: var(--rust); }
+.zd-badge.due { background: var(--rust); color: var(--paper); }
+.zd-badge.mastered { background: var(--jade-deep); color: var(--paper); }
+.zd-mini-audio { background: none; border: none; cursor: pointer; font-size: 13px; }
+
+/* review card mode */
+.zd-review-wrap { text-align:center; padding: 20px 0; }
+.zd-review-progress { font-size: 12px; color: var(--ink-soft); margin-bottom: 14px; }
+.zd-card { background: #fffdf9; border: 1px solid var(--line); border-radius: 12px; padding: 40px 24px; max-width: 420px; margin: 0 auto 18px; }
+.zd-card-py { font-size: 32px; font-weight: 700; color: var(--jade-deep); margin-bottom: 10px; }
+.zd-card-py.zd-phrase-py { color: var(--rust); }
+.zd-card-audio { background: var(--jade-deep); color: var(--paper); border:none; border-radius: 20px; padding: 6px 16px; font-size: 14px; cursor:pointer; margin-bottom: 16px; }
+.zd-card-audio:hover { background: var(--jade); }
+.zd-card-en { font-size: 16px; color: var(--ink-soft); font-style: italic; min-height: 24px; }
+.zd-reveal-btn { margin-top: 6px; }
+.zd-answer-btns { display:flex; gap:12px; justify-content:center; margin-top:18px; }
+.zd-btn-forgot { background: var(--rust); border-color: var(--rust); }
+.zd-btn-forgot:hover { background: #8a3a26; }
+.zd-empty { text-align:center; padding: 30px; color: var(--ink-soft); font-size: 13px; }
+</style>
+
+<script>
+(function(){
+  const BUILTIN_WORDS = {
+    "i":{py:"wǒ",zh:"我"},"you":{py:"nǐ",zh:"你"},"he":{py:"tā",zh:"他"},"she":{py:"tā",zh:"她"},
+    "we":{py:"wǒmen",zh:"我们"},"they":{py:"tāmen",zh:"他们"},
+    "this":{py:"zhège",zh:"这个"},"that":{py:"nàge",zh:"那个"},"who":{py:"shéi",zh:"谁"},
+    "what":{py:"shénme",zh:"什么"},"where":{py:"nǎlǐ",zh:"哪里"},"when":{py:"shénme shíhou",zh:"什么时候"},
+    "why":{py:"wèishénme",zh:"为什么"},"how":{py:"zěnme",zh:"怎么"},
+    "yes":{py:"duì",zh:"对"},"no":{py:"bù",zh:"不"},"not":{py:"bù",zh:"不"},
+    "is":{py:"shì",zh:"是"},"am":{py:"shì",zh:"是"},"are":{py:"shì",zh:"是"},
+    "have":{py:"yǒu",zh:"有"},"has":{py:"yǒu",zh:"有"},
+    "want":{py:"xiǎng yào",zh:"想要"},"like":{py:"xǐhuan",zh:"喜欢"},"love":{py:"ài",zh:"爱"},
+    "go":{py:"qù",zh:"去"},"come":{py:"lái",zh:"来"},"eat":{py:"chī",zh:"吃"},"drink":{py:"hē",zh:"喝"},
+    "see":{py:"kànjiàn",zh:"看见"},"look":{py:"kàn",zh:"看"},"watch":{py:"kàn",zh:"看"},"listen":{py:"tīng",zh:"听"},
+    "say":{py:"shuō",zh:"说"},"speak":{py:"shuō",zh:"说"},"talk":{py:"shuōhuà",zh:"说话"},
+    "read":{py:"dú",zh:"读"},"write":{py:"xiě",zh:"写"},"buy":{py:"mǎi",zh:"买"},"sell":{py:"mài",zh:"卖"},
+    "work":{py:"gōngzuò",zh:"工作"},"study":{py:"xuéxí",zh:"学习"},"learn":{py:"xué",zh:"学"},"teach":{py:"jiāo",zh:"教"},
+    "sleep":{py:"shuìjiào",zh:"睡觉"},"rest":{py:"xiūxi",zh:"休息"},"walk":{py:"zǒulù",zh:"走路"},"run":{py:"pǎo",zh:"跑"},
+    "sit":{py:"zuò",zh:"坐"},"stand":{py:"zhàn",zh:"站"},"open":{py:"kāi",zh:"开"},"close":{py:"guān",zh:"关"},
+    "give":{py:"gěi",zh:"给"},"take":{py:"ná",zh:"拿"},"send":{py:"fā",zh:"发"},"wait":{py:"děng",zh:"等"},
+    "know":{py:"zhīdào",zh:"知道"},"think":{py:"xiǎng",zh:"想"},"understand":{py:"dǒng",zh:"懂"},
+    "remember":{py:"jìde",zh:"记得"},"forget":{py:"wàng",zh:"忘"},
+    "can":{py:"néng",zh:"能"},"cant":{py:"bùnéng",zh:"不能"},"must":{py:"bìxū",zh:"必须"},
+    "should":{py:"yīnggāi",zh:"应该"},"maybe":{py:"yěxǔ",zh:"也许"},
+    "today":{py:"jīntiān",zh:"今天"},"tomorrow":{py:"míngtiān",zh:"明天"},"yesterday":{py:"zuótiān",zh:"昨天"},
+    "now":{py:"xiànzài",zh:"现在"},"time":{py:"shíjiān",zh:"时间"},"day":{py:"tiān",zh:"天"},
+    "month":{py:"yuè",zh:"月"},"year":{py:"nián",zh:"年"},"week":{py:"xīngqī",zh:"星期"},
+    "morning":{py:"zǎoshang",zh:"早上"},"afternoon":{py:"xiàwǔ",zh:"下午"},"evening":{py:"wǎnshang",zh:"晚上"},"night":{py:"yèwǎn",zh:"夜晚"},
+    "big":{py:"dà",zh:"大"},"small":{py:"xiǎo",zh:"小"},"good":{py:"hǎo",zh:"好"},"bad":{py:"huài",zh:"坏"},
+    "beautiful":{py:"piàoliang",zh:"漂亮"},"ugly":{py:"chǒu",zh:"丑"},"happy":{py:"kāixīn",zh:"开心"},
+    "sad":{py:"nánguò",zh:"难过"},"angry":{py:"shēngqì",zh:"生气"},"tired":{py:"lèi",zh:"累"},
+    "hot":{py:"rè",zh:"热"},"cold":{py:"lěng",zh:"冷"},"new":{py:"xīn",zh:"新"},"old":{py:"jiù",zh:"旧"},
+    "fast":{py:"kuài",zh:"快"},"slow":{py:"màn",zh:"慢"},"expensive":{py:"guì",zh:"贵"},"cheap":{py:"piányi",zh:"便宜"},
+    "easy":{py:"róngyì",zh:"容易"},"difficult":{py:"nán",zh:"难"},"hard":{py:"nán",zh:"难"},
+    "many":{py:"hěnduō",zh:"很多"},"few":{py:"yìxiē",zh:"一些"},"all":{py:"dōu",zh:"都"},"some":{py:"yìxiē",zh:"一些"},
+    "friend":{py:"péngyou",zh:"朋友"},"family":{py:"jiārén",zh:"家人"},"mother":{py:"māma",zh:"妈妈"},"father":{py:"bàba",zh:"爸爸"},
+    "son":{py:"érzi",zh:"儿子"},"daughter":{py:"nǚér",zh:"女儿"},"brother":{py:"gēge",zh:"哥哥"},"sister":{py:"jiějie",zh:"姐姐"},
+    "child":{py:"háizi",zh:"孩子"},"teacher":{py:"lǎoshī",zh:"老师"},"student":{py:"xuésheng",zh:"学生"},"doctor":{py:"yīshēng",zh:"医生"},
+    "money":{py:"qián",zh:"钱"},"food":{py:"shíwù",zh:"食物"},"water":{py:"shuǐ",zh:"水"},"tea":{py:"chá",zh:"茶"},
+    "coffee":{py:"kāfēi",zh:"咖啡"},"rice":{py:"mǐfàn",zh:"米饭"},"book":{py:"shū",zh:"书"},"phone":{py:"shǒujī",zh:"手机"},
+    "computer":{py:"diànnǎo",zh:"电脑"},"car":{py:"qìchē",zh:"汽车"},"house":{py:"fángzi",zh:"房子"},"home":{py:"jiā",zh:"家"},
+    "school":{py:"xuéxiào",zh:"学校"},"hospital":{py:"yīyuàn",zh:"医院"},"restaurant":{py:"fànguǎn",zh:"饭馆"},"shop":{py:"shāngdiàn",zh:"商店"},
+    "city":{py:"chéngshì",zh:"城市"},"country":{py:"guójiā",zh:"国家"},"road":{py:"lù",zh:"路"},"door":{py:"mén",zh:"门"},
+    "table":{py:"zhuōzi",zh:"桌子"},"chair":{py:"yǐzi",zh:"椅子"},"dog":{py:"gǒu",zh:"狗"},"cat":{py:"māo",zh:"猫"},
+    "bird":{py:"niǎo",zh:"鸟"},"fish":{py:"yú",zh:"鱼"},"fruit":{py:"shuǐguǒ",zh:"水果"},"vegetable":{py:"shūcài",zh:"蔬菜"},
+    "color":{py:"yánsè",zh:"颜色"},"red":{py:"hóngsè",zh:"红色"},"white":{py:"báisè",zh:"白色"},"black":{py:"hēisè",zh:"黑色"},
+    "blue":{py:"lánsè",zh:"蓝色"},"green":{py:"lǜsè",zh:"绿色"},"yellow":{py:"huángsè",zh:"黄色"},
+    "one":{py:"yī",zh:"一"},"two":{py:"èr",zh:"二"},"three":{py:"sān",zh:"三"},"four":{py:"sì",zh:"四"},"five":{py:"wǔ",zh:"五"},
+    "six":{py:"liù",zh:"六"},"seven":{py:"qī",zh:"七"},"eight":{py:"bā",zh:"八"},"nine":{py:"jiǔ",zh:"九"},"ten":{py:"shí",zh:"十"},
+    "hundred":{py:"bǎi",zh:"百"},"thousand":{py:"qiān",zh:"千"},
+    "please":{py:"qǐng",zh:"请"},"thanks":{py:"xièxie",zh:"谢谢"},"thank":{py:"xièxie",zh:"谢谢"},"sorry":{py:"duìbuqǐ",zh:"对不起"},
+    "hello":{py:"nǐhǎo",zh:"你好"},"goodbye":{py:"zàijiàn",zh:"再见"},
+    "very":{py:"hěn",zh:"很"},"also":{py:"yě",zh:"也"},"again":{py:"zài",zh:"再"},
+    "because":{py:"yīnwèi",zh:"因为"},"so":{py:"suǒyǐ",zh:"所以"},"but":{py:"dànshì",zh:"但是"},"and":{py:"hé",zh:"和"},
+    "or":{py:"huòzhě",zh:"或者"},"if":{py:"rúguǒ",zh:"如果"},"with":{py:"gēn",zh:"跟"},"without":{py:"méiyǒu",zh:"没有"},
+    "here":{py:"zhèlǐ",zh:"这里"},"there":{py:"nàlǐ",zh:"那里"},"up":{py:"shàng",zh:"上"},"down":{py:"xià",zh:"下"},
+    "in":{py:"lǐ",zh:"里"},"out":{py:"wài",zh:"外"},"left":{py:"zuǒ",zh:"左"},"right":{py:"yòu",zh:"右"},
+    "before":{py:"yǐqián",zh:"以前"},"after":{py:"yǐhòu",zh:"以后"},"airplane":{py:"fēijī",zh:"飞机"},"train":{py:"huǒchē",zh:"火车"},"bus":{py:"gōngjiāochē",zh:"公交车"},"bicycle":{py:"zìxíngchē",zh:"自行车"},"subway":{py:"dìtiě",zh:"地铁"},"taxi":{py:"chūzūchē",zh:"出租车"},"ticket":{py:"piào",zh:"票"},"airport":{py:"jīchǎng",zh:"机场"},"station":{py:"chēzhàn",zh:"车站"},"rain":{py:"yǔ",zh:"雨"},"snow":{py:"xuě",zh:"雪"},"wind":{py:"fēng",zh:"风"},"cloud":{py:"yún",zh:"云"},"sun":{py:"tàiyáng",zh:"太阳"},"moon":{py:"yuèliang",zh:"月亮"},"star":{py:"xīngxīng",zh:"星星"},"sky":{py:"tiānkōng",zh:"天空"},"mountain":{py:"shān",zh:"山"},"river":{py:"hé",zh:"河"},"sea":{py:"hǎi",zh:"海"},"lake":{py:"hú",zh:"湖"},"forest":{py:"sēnlín",zh:"森林"},"spring":{py:"chūntiān",zh:"春天"},"summer":{py:"xiàtiān",zh:"夏天"},"autumn":{py:"qiūtiān",zh:"秋天"},"winter":{py:"dōngtiān",zh:"冬天"},"head":{py:"tóu",zh:"头"},"hand":{py:"shǒu",zh:"手"},"foot":{py:"jiǎo",zh:"脚"},"eye":{py:"yǎnjing",zh:"眼睛"},"mouth":{py:"zuǐ",zh:"嘴"},"ear":{py:"ěrduo",zh:"耳朵"},"nose":{py:"bízi",zh:"鼻子"},"hair":{py:"tóufa",zh:"头发"},"face":{py:"liǎn",zh:"脸"},"body":{py:"shēntǐ",zh:"身体"},"clothes":{py:"yīfu",zh:"衣服"},"shoes":{py:"xié",zh:"鞋"},"hat":{py:"màozi",zh:"帽子"},"pants":{py:"kùzi",zh:"裤子"},"skirt":{py:"qúnzi",zh:"裙子"},"grandfather":{py:"yéye",zh:"爷爷"},"grandmother":{py:"nǎinai",zh:"奶奶"},"husband":{py:"zhàngfu",zh:"丈夫"},"wife":{py:"qīzi",zh:"妻子"},"uncle":{py:"shūshu",zh:"叔叔"},"aunt":{py:"āyí",zh:"阿姨"},"pen":{py:"bǐ",zh:"笔"},"pencil":{py:"qiānbǐ",zh:"铅笔"},"paper":{py:"zhǐ",zh:"纸"},"bag":{py:"bāo",zh:"包"},"desk":{py:"shūzhuō",zh:"书桌"},"blackboard":{py:"hēibǎn",zh:"黑板"},"exam":{py:"kǎoshì",zh:"考试"},"homework":{py:"zuòyè",zh:"作业"},"class":{py:"kè",zh:"课"},"chinese":{py:"zhōngwén",zh:"中文"},"math":{py:"shùxué",zh:"数学"},"english":{py:"yīngyǔ",zh:"英语"},"history":{py:"lìshǐ",zh:"历史"},"science":{py:"kēxué",zh:"科学"},"sick":{py:"bìng",zh:"病"},"medicine":{py:"yào",zh:"药"},"headache":{py:"tóuténg",zh:"头疼"},"fever":{py:"fāshāo",zh:"发烧"},"cough":{py:"késou",zh:"咳嗽"},"price":{py:"jiàgé",zh:"价格"},"discount":{py:"zhékòu",zh:"折扣"},"receipt":{py:"fāpiào",zh:"发票"},"wallet":{py:"qiánbāo",zh:"钱包"},"cash":{py:"xiànjīn",zh:"现金"},"sing":{py:"chànggē",zh:"唱歌"},"dance":{py:"tiàowǔ",zh:"跳舞"},"paint":{py:"huàhuà",zh:"画画"},"swim":{py:"yóuyǒng",zh:"游泳"},"climb":{py:"pá",zh:"爬"},"travel":{py:"lǚyóu",zh:"旅游"},"exercise":{py:"yùndòng",zh:"运动"},"cook":{py:"zuòfàn",zh:"做饭"},"clean":{py:"dǎsǎo",zh:"打扫"},"wash":{py:"xǐ",zh:"洗"},"worried":{py:"dānxīn",zh:"担心"},"surprised":{py:"jīngyà",zh:"惊讶"},"scared":{py:"hàipà",zh:"害怕"},"excited":{py:"xīngfèn",zh:"兴奋"},"bored":{py:"wúliáo",zh:"无聊"},"lonely":{py:"gūdú",zh:"孤独"},"interesting":{py:"yǒuqù",zh:"有趣"},"important":{py:"zhòngyào",zh:"重要"},"dangerous":{py:"wēixiǎn",zh:"危险"},"safe":{py:"ānquán",zh:"安全"},"dirty":{py:"zāng",zh:"脏"},"quiet":{py:"ānjìng",zh:"安静"},"noisy":{py:"chǎo",zh:"吵"},"comfortable":{py:"shūfu",zh:"舒服"},"convenient":{py:"fāngbiàn",zh:"方便"},"busy":{py:"máng",zh:"忙"},"short":{py:"ǎi",zh:"矮"},"tall":{py:"gāo",zh:"高"},"long":{py:"cháng",zh:"长"},"wide":{py:"kuān",zh:"宽"},"narrow":{py:"zhǎi",zh:"窄"},"heavy":{py:"zhòng",zh:"重"},"light":{py:"qīng",zh:"轻"},"thick":{py:"hòu",zh:"厚"},"thin":{py:"báo",zh:"薄"},"deep":{py:"shēn",zh:"深"},"shallow":{py:"qiǎn",zh:"浅"},"full":{py:"mǎn",zh:"满"},"empty":{py:"kōng",zh:"空"},"similar":{py:"xiāngsì",zh:"相似"},"wrong":{py:"cuò",zh:"错"},"correct":{py:"duì",zh:"对"},"north":{py:"běi",zh:"北"},"south":{py:"nán",zh:"南"},"east":{py:"dōng",zh:"东"},"west":{py:"xī",zh:"西"},"bank":{py:"yínháng",zh:"银行"},"park":{py:"gōngyuán",zh:"公园"},"library":{py:"túshūguǎn",zh:"图书馆"},"office":{py:"bàngōngshì",zh:"办公室"},"company":{py:"gōngsī",zh:"公司"},"factory":{py:"gōngchǎng",zh:"工厂"},"window":{py:"chuānghu",zh:"窗户"},"wall":{py:"qiáng",zh:"墙"},"floor":{py:"dìbǎn",zh:"地板"},"kitchen":{py:"chúfáng",zh:"厨房"},"bathroom":{py:"wèishēngjiān",zh:"卫生间"},"bedroom":{py:"wòshì",zh:"卧室"},"livingroom":{py:"kètīng",zh:"客厅"},"key":{py:"yàoshi",zh:"钥匙"},"umbrella":{py:"yǔsǎn",zh:"雨伞"},"glasses":{py:"yǎnjìng",zh:"眼镜"},"mirror":{py:"jìngzi",zh:"镜子"},"soap":{py:"féizào",zh:"肥皂"},"towel":{py:"máojīn",zh:"毛巾"},"newspaper":{py:"bàozhǐ",zh:"报纸"},"magazine":{py:"zázhì",zh:"杂志"},"letter":{py:"xìn",zh:"信"},"gift":{py:"lǐwù",zh:"礼物"},"birthday":{py:"shēngrì",zh:"生日"},"holiday":{py:"jiàqī",zh:"假期"},"weekend":{py:"zhōumò",zh:"周末"},"plan":{py:"jìhuà",zh:"计划"},"meeting":{py:"huìyì",zh:"会议"},"salary":{py:"gōngzī",zh:"工资"},"boss":{py:"lǎobǎn",zh:"老板"},"colleague":{py:"tóngshì",zh:"同事"},"customer":{py:"kèhù",zh:"客户"},"change":{py:"gǎibiàn",zh:"改变"},"continue":{py:"jìxù",zh:"继续"},"stop":{py:"tíng",zh:"停"},"start":{py:"kāishǐ",zh:"开始"},"finish":{py:"jiéshù",zh:"结束"},"succeed":{py:"chénggōng",zh:"成功"},"fail":{py:"shībài",zh:"失败"},"choose":{py:"xuǎnzé",zh:"选择"},"decide":{py:"juédìng",zh:"决定"},"agree":{py:"tóngyì",zh:"同意"},"promise":{py:"chéngnuò",zh:"承诺"},"believe":{py:"xiāngxìn",zh:"相信"},"hope":{py:"xīwàng",zh:"希望"},"dream":{py:"mèng",zh:"梦"},"feel":{py:"gǎnjué",zh:"感觉"},"probably":{py:"kěnéng",zh:"可能"},"certainly":{py:"yídìng",zh:"一定"}
+  };
+  const BUILTIN_PHRASES = {
+    "freak out":{py:"zhuākuáng",zh:"抓狂"},
+    "give up":{py:"fàngqì",zh:"放弃"},
+    "find out":{py:"fāxiàn",zh:"发现"},
+    "figure out":{py:"nòngmíngbai",zh:"弄明白"},
+    "look forward to":{py:"qídài",zh:"期待"},
+    "get along":{py:"xiāngchǔ",zh:"相处"},
+    "come up with":{py:"xiǎngchū",zh:"想出"},
+    "take care of":{py:"zhàogù",zh:"照顾"},
+    "show up":{py:"chūxiàn",zh:"出现"},
+    "hang out":{py:"xiánguàng",zh:"闲逛"},
+    "break up":{py:"fēnshǒu",zh:"分手"},
+    "calm down":{py:"lěngjìng",zh:"冷静"},
+    "wake up":{py:"xǐng",zh:"醒"},
+    "turn on":{py:"dǎkāi",zh:"打开"},
+    "turn off":{py:"guāndiào",zh:"关掉"},
+    "deal with":{py:"chǔlǐ",zh:"处理"},
+    "of course":{py:"dāngrán",zh:"当然"},
+    "by the way":{py:"shùnbiàn shuō",zh:"顺便说"},
+    "in fact":{py:"qíshí",zh:"其实"},
+    "at least":{py:"zhìshǎo",zh:"至少"}
+  };
+
+  const STORAGE_KEY_PROGRESS = "zh-reader-progress";
+  const STORAGE_KEY_CUSTOM_WORDS = "zh-reader-custom-words";
+  const STORAGE_KEY_CUSTOM_PHRASES = "zh-reader-custom-phrases";
+  const MASTERY_THRESHOLD = 5;
+  const DAY = 24 * 60 * 60 * 1000;
+
+  // spaced-repetition-ish intervals: how long a word can go unseen before it's "due"
+  function dueInterval(count){
+    if (count <= 0) return 0;
+    if (count === 1) return 1 * DAY;
+    if (count === 2) return 2 * DAY;
+    if (count === 3) return 4 * DAY;
+    if (count === 4) return 7 * DAY;
+    return 14 * DAY; // mastered
+  }
+
+  let progress = { exposures: {}, sessions: 0, level: 1 };
+  let customWords = {};
+  let customPhrases = {};
+  let zhVoice = null;
+  let reviewQueue = [];
+  let reviewIndex = 0;
+  let reviewRevealed = false;
+  let reviewDone = 0;
+
+  function pickVoice(){
+    if (!window.speechSynthesis) return;
+    const voices = speechSynthesis.getVoices();
+    zhVoice = voices.find(v => v.lang === "zh-CN") || voices.find(v => v.lang && v.lang.startsWith("zh")) || null;
+  }
+  if (window.speechSynthesis) { pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
+  function speakZh(text){
+    if (!window.speechSynthesis || !text) return;
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = "zh-CN"; if (zhVoice) u.voice = zhVoice; u.rate = 0.82;
+    speechSynthesis.speak(u);
+  }
+
+  function getCount(key){
+    const e = progress.exposures[key];
+    if (!e) return 0;
+    return typeof e === "number" ? e : (e.count || 0);
+  }
+  function getVerified(key){
+    const e = progress.exposures[key];
+    if (!e || typeof e === "number") return 0;
+    return e.verified || 0;
+  }
+  function getLastSeen(key){
+    const e = progress.exposures[key];
+    if (!e || typeof e === "number") return null;
+    return e.lastSeen || null;
+  }
+  function setExposure(key, count, verified, lastSeen){
+    progress.exposures[key] = { count, verified, lastSeen };
+  }
+
+  const root = document.getElementById("zh-dash-root");
+  root.innerHTML = `
+    <div class="zd-header">
+      <div>
+        <div class="zd-title">Reading Bridge <span class="accent">进度</span></div>
+        <div class="zd-sub zd-sans">Прогресс и повторение по всем словам и фразам из Reading Bridge</div>
+      </div>
+      <div class="zd-stats zd-sans">
+        <div class="zd-stat"><div class="zd-stat-num" id="zd-total">0</div><div class="zd-stat-label">В словаре</div></div>
+        <div class="zd-stat"><div class="zd-stat-num" id="zd-mastered">0</div><div class="zd-stat-label">Освоено</div></div>
+        <div class="zd-stat"><div class="zd-stat-num due" id="zd-due">0</div><div class="zd-stat-label">Пора повторить</div></div>
+      </div>
+    </div>
+
+    <div class="zd-panel" id="zd-review-cta-panel">
+      <div class="zd-review-cta zd-sans">
+        <p id="zd-review-cta-text">Загрузка…</p>
+        <div style="display:flex; gap:10px;">
+          <button class="zd-btn secondary zd-sans" id="zd-export-village">Экспорт для деревни</button>
+          <button class="zd-btn" id="zd-start-review">Начать повторение</button>
+        </div>
+      </div>
+      <textarea id="zd-village-output" readonly class="zd-sans" style="display:none; width:100%; min-height:60px; font-family:monospace; font-size:11px; padding:8px; margin-top:10px; border:1px solid var(--line); border-radius:6px; background:#fffdf9;"></textarea>
+    </div>
+
+    <div class="zd-panel" id="zd-review-panel" style="display:none;"></div>
+
+    <div class="zd-panel">
+      <input type="text" class="zd-search zd-sans" id="zd-search" placeholder="Поиск по слову, pinyin или переводу..." />
+      <table class="zd-table zd-sans">
+        <thead>
+          <tr>
+            <th data-sort="en">Слово / фраза</th>
+            <th data-sort="py">Pinyin</th>
+            <th data-sort="type">Тип</th>
+            <th data-sort="count">Показов</th>
+            <th data-sort="verified">Подтверждено</th>
+            <th data-sort="last">Последний раз</th>
+            <th data-sort="status">Статус</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="zd-table-body"></tbody>
+      </table>
+      <div class="zd-empty" id="zd-empty" style="display:none;">Пока пусто — почитай что-нибудь через Reading Bridge, и слова появятся тут.</div>
+    </div>
+  `;
+
+  const $ = (sel) => root.querySelector(sel);
+
+  function allEntries(){
+    const wd = Object.assign({}, BUILTIN_WORDS, customWords);
+    const pd = Object.assign({}, BUILTIN_PHRASES, customPhrases);
+    const list = [];
+    Object.keys(wd).forEach(en => list.push({ en, type: "word", entry: wd[en] }));
+    Object.keys(pd).forEach(en => list.push({ en, type: "phrase", entry: pd[en] }));
+    return list;
+  }
+
+  function isDue(en){
+    const count = getCount(en);
+    if (count <= 0) return false; // never seen at all — not "forgotten", just new
+    const verified = getVerified(en);
+    if (verified === 0) return true; // seen passively but never actually tested — due for first real check
+    const lastSeen = getLastSeen(en);
+    if (!lastSeen) return true; // legacy data with no timestamp — treat as due, establish a baseline
+    return (Date.now() - lastSeen) > dueInterval(verified);
+  }
+
+  let sortKey = "last";
+  let sortDir = 1;
+
+  function statusOf(en){
+    const count = getCount(en);
+    if (count === 0) return "new";
+    if (isDue(en)) return "due";
+    if (getVerified(en) >= MASTERY_THRESHOLD) return "mastered";
+    return "learning";
+  }
+
+  function renderAll(){
+    const entries = allEntries();
+    const total = entries.length;
+    const mastered = entries.filter(e => getVerified(e.en) >= MASTERY_THRESHOLD).length;
+    const due = entries.filter(e => isDue(e.en));
+
+    $("#zd-total").textContent = total;
+    $("#zd-mastered").textContent = mastered;
+    $("#zd-due").textContent = due.length;
+
+    if (due.length === 0) {
+      $("#zd-review-cta-text").textContent = "Всё свежо — повторять пока нечего. Почитай что-нибудь новое в Reading Bridge.";
+      $("#zd-start-review").disabled = true;
+    } else {
+      $("#zd-review-cta-text").textContent = `${due.length} слов/фраз просят повторения — то, что ты видел, но давно не встречал.`;
+      $("#zd-start-review").disabled = false;
+    }
+
+    renderTable(entries);
+  }
+
+  function renderTable(entries){
+    const search = $("#zd-search").value.trim().toLowerCase();
+    let filtered = entries.filter(e => {
+      if (!search) return true;
+      return e.en.includes(search) || e.entry.py.toLowerCase().includes(search) || (e.entry.zh || "").includes(search);
+    });
+
+    filtered.sort((a, b) => {
+      let av, bv;
+      if (sortKey === "en") { av = a.en; bv = b.en; }
+      else if (sortKey === "py") { av = a.entry.py; bv = b.entry.py; }
+      else if (sortKey === "type") { av = a.type; bv = b.type; }
+      else if (sortKey === "count") { av = getCount(a.en); bv = getCount(b.en); }
+      else if (sortKey === "verified") { av = getVerified(a.en); bv = getVerified(b.en); }
+      else if (sortKey === "last") { av = getLastSeen(a.en) || 0; bv = getLastSeen(b.en) || 0; }
+      else if (sortKey === "status") { av = statusOf(a.en); bv = statusOf(b.en); }
+      if (av < bv) return -1 * sortDir;
+      if (av > bv) return 1 * sortDir;
+      return 0;
+    });
+
+    $("#zd-empty").style.display = filtered.length ? "none" : "block";
+
+    $("#zd-table-body").innerHTML = filtered.map(e => {
+      const count = getCount(e.en);
+      const verified = getVerified(e.en);
+      const lastSeen = getLastSeen(e.en);
+      const status = statusOf(e.en);
+      const lastSeenText = lastSeen ? formatRelative(lastSeen) : (count > 0 ? "давно (нет даты)" : "—");
+      let badge = "";
+      if (status === "due") badge = `<span class="zd-badge due">пора повторить</span>`;
+      else if (status === "mastered") badge = `<span class="zd-badge mastered">освоено</span>`;
+      else if (status === "learning") badge = `<span class="zd-badge">учится</span>`;
+      else badge = `<span class="zd-badge" style="opacity:0.5;">новое</span>`;
+      return `<tr class="${status === 'due' ? 'due-row' : ''}">
+        <td>${e.en}</td>
+        <td>${e.entry.py}</td>
+        <td><span class="zd-badge ${e.type === 'phrase' ? 'phrase' : ''}">${e.type === 'phrase' ? 'фраза' : 'слово'}</span></td>
+        <td>${count}</td>
+        <td>${verified}/${MASTERY_THRESHOLD}</td>
+        <td>${lastSeenText}</td>
+        <td>${badge}</td>
+        <td><button class="zd-mini-audio" data-speak="${e.entry.zh || e.entry.py}" aria-label="Озвучить ${e.en}">🔊</button></td>
+      </tr>`;
+    }).join("");
+
+    $("#zd-table-body").querySelectorAll("[data-speak]").forEach(btn => {
+      btn.addEventListener("click", () => speakZh(btn.dataset.speak));
+    });
+  }
+
+  function formatRelative(ts){
+    const diffMs = Date.now() - ts;
+    const days = Math.floor(diffMs / DAY);
+    if (days <= 0) return "сегодня";
+    if (days === 1) return "вчера";
+    if (days < 7) return days + " дн. назад";
+    const weeks = Math.floor(days / 7);
+    if (weeks < 5) return weeks + " нед. назад";
+    return Math.floor(days / 30) + " мес. назад";
+  }
+
+  // ---- review card mode ----
+  function startReview(){
+    const entries = allEntries().filter(e => isDue(e.en));
+    // most overdue first
+    entries.sort((a, b) => (getLastSeen(a.en) || 0) - (getLastSeen(b.en) || 0));
+    reviewQueue = entries;
+    reviewIndex = 0;
+    reviewDone = 0;
+    reviewRevealed = false;
+    $("#zd-review-cta-panel").style.display = "none";
+    $("#zd-review-panel").style.display = "block";
+    renderReviewCard();
+  }
+
+  function renderReviewCard(){
+    const panel = $("#zd-review-panel");
+    if (reviewIndex >= reviewQueue.length) {
+      panel.innerHTML = `
+        <div class="zd-review-wrap">
+          <div style="font-size:20px; color:var(--jade-deep); margin-bottom:8px;">Готово 🎉</div>
+          <div class="zd-sans" style="color:var(--ink-soft); margin-bottom:18px;">Повторил ${reviewDone} из ${reviewQueue.length}.</div>
+          <button class="zd-btn secondary zd-sans" id="zd-finish-review">Вернуться к дашборду</button>
+        </div>`;
+      $("#zd-finish-review").addEventListener("click", async () => {
+        $("#zd-review-panel").style.display = "none";
+        $("#zd-review-cta-panel").style.display = "block";
+        await saveProgress();
+        renderAll();
+      });
+      return;
+    }
+
+    const item = reviewQueue[reviewIndex];
+    reviewRevealed = false;
+
+    // build honest multiple-choice test instead of self-reported remember/forgot
+    const pool = allEntries().filter(e => e.en !== item.en);
+    const distractors = [];
+    while (distractors.length < 3 && distractors.length < pool.length) {
+      const cand = pool[Math.floor(Math.random() * pool.length)];
+      if (!distractors.find(d => d.en === cand.en)) distractors.push(cand);
+    }
+    const options = [item, ...distractors].sort(() => Math.random() - 0.5);
+
+    panel.innerHTML = `
+      <div class="zd-review-wrap">
+        <div class="zd-review-progress zd-sans">${reviewIndex + 1} / ${reviewQueue.length}</div>
+        <div class="zd-card">
+          <div class="zd-card-py ${item.type === 'phrase' ? 'zd-phrase-py' : ''}">${item.entry.py}</div>
+          <button class="zd-card-audio" id="zd-card-audio-btn">🔊 Произнести</button>
+          <div class="zd-sans" style="font-size:12px; color:var(--ink-soft); margin-bottom:10px;">Что это значит?</div>
+          <div class="zd-mc-options" id="zd-mc-options" style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+            ${options.map(o => `<button class="zd-btn secondary zd-sans zd-mc-btn" data-en="${o.en}" style="padding:10px 8px;">${o.en}</button>`).join("")}
+          </div>
+          <div class="zd-card-en zd-sans" id="zd-feedback" style="margin-top:14px;"></div>
+        </div>
+        <div style="margin-top:6px;"><button class="zd-btn ghost zd-sans" id="zd-skip-btn">Пропустить сессию</button></div>
+      </div>
+    `;
+
+    $("#zd-card-audio-btn").addEventListener("click", () => speakZh(item.entry.zh || item.entry.py));
+    speakZh(item.entry.zh || item.entry.py);
+
+    panel.querySelectorAll(".zd-mc-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        panel.querySelectorAll(".zd-mc-btn").forEach(b => b.disabled = true);
+        const picked = btn.dataset.en;
+        const isCorrect = picked === item.en;
+        const cur = getCount(item.en);
+        const curVerified = getVerified(item.en);
+        if (isCorrect) {
+          setExposure(item.en, cur + 1, curVerified + 1, Date.now());
+          reviewDone++;
+          btn.style.background = "var(--jade-deep)"; btn.style.color = "var(--paper)";
+        } else {
+          setExposure(item.en, cur + 1, Math.max(0, Math.floor(curVerified / 2)), Date.now());
+          btn.style.background = "var(--rust)"; btn.style.color = "var(--paper)";
+          const correctBtn = panel.querySelector(`.zd-mc-btn[data-en="${item.en}"]`);
+          if (correctBtn) { correctBtn.style.background = "var(--jade-deep)"; correctBtn.style.color = "var(--paper)"; }
+        }
+        const fb = document.getElementById("zd-feedback");
+        fb.innerHTML = `<div style="margin-bottom:8px;">${isCorrect ? "Верно!" : "Не совсем — правильный ответ выделен."}</div><button class="zd-btn zd-sans" id="zd-next-card-btn">Дальше →</button>`;
+        document.getElementById("zd-next-card-btn").addEventListener("click", () => {
+          reviewIndex++;
+          renderReviewCard();
+        });
+      });
+    });
+    $("#zd-skip-btn").addEventListener("click", async () => {
+      $("#zd-review-panel").style.display = "none";
+      $("#zd-review-cta-panel").style.display = "block";
+      await saveProgress();
+      renderAll();
+    });
+  }
+
+  async function saveProgress(){
+    try { await window.storage.set(STORAGE_KEY_PROGRESS, JSON.stringify(progress)); }
+    catch(e) { console.error("Storage error", e); }
+  }
+
+  async function loadState(){
+    try {
+      const p = await window.storage.get(STORAGE_KEY_PROGRESS);
+      if (p && p.value) progress = JSON.parse(p.value);
+    } catch(e) {}
+    try {
+      const c = await window.storage.get(STORAGE_KEY_CUSTOM_WORDS);
+      if (c && c.value) customWords = JSON.parse(c.value);
+    } catch(e) {}
+    try {
+      const ph = await window.storage.get(STORAGE_KEY_CUSTOM_PHRASES);
+      if (ph && ph.value) customPhrases = JSON.parse(ph.value);
+    } catch(e) {}
+    renderAll();
+  }
+
+  $("#zd-start-review").addEventListener("click", startReview);
+  $("#zd-export-village").addEventListener("click", () => {
+    const entries = allEntries();
+    const mastered = entries.filter(e => getVerified(e.en) >= MASTERY_THRESHOLD).length;
+    const payload = { mastered, sessions: progress.sessions, exportedAt: Date.now() };
+    const box = $("#zd-village-output");
+    box.value = JSON.stringify(payload);
+    box.style.display = box.style.display === "none" ? "block" : "none";
+    if (box.style.display === "block") { box.select(); }
+  });
+  $("#zd-search").addEventListener("input", () => renderTable(allEntries()));
+  root.querySelectorAll("[data-sort]").forEach(th => {
+    th.addEventListener("click", () => {
+      const key = th.dataset.sort;
+      if (sortKey === key) sortDir *= -1; else { sortKey = key; sortDir = 1; }
+      renderTable(allEntries());
+    });
+  });
+
+  loadState();
+})();
+</script>
