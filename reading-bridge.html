@@ -300,6 +300,7 @@ textarea#zr-input:focus { outline: 2px solid var(--jade); outline-offset: 1px; }
       <div class="zr-row">
         <button class="zr-toggle" id="zr-toggle-words">+ добавить своё слово/фразу / посмотреть словарь</button>
         <button class="zr-toggle" id="zr-export-btn">⇩ экспортировать мой словарь (для расширения)</button>
+        <button class="zr-toggle" id="zr-reset-all-btn" style="color:var(--rust);">🗑 сбросить всё (слова + прогресс)</button>
       </div>
       <div class="zr-row" id="zr-export-row" style="display:none;">
         <textarea id="zr-export-output" readonly style="width:100%; min-height:70px; font-family:monospace; font-size:11px; padding:8px; border:1px solid var(--line); border-radius:6px; background:#fffdf9;"></textarea>
@@ -655,6 +656,25 @@ textarea#zr-input:focus { outline: 2px solid var(--jade); outline-offset: 1px; }
       $("#zr-export-output").select();
       $("#zr-export-msg").textContent = "Выдели и скопируй вручную (Ctrl/Cmd+C).";
     }
+  });
+
+  $("#zr-reset-all-btn").addEventListener("click", async () => {
+    const ok = confirm("Стереть весь прогресс: свои слова, отметки «знаю», историю показов и уровень? Это необратимо.");
+    if (!ok) return;
+    progress = { exposures: {}, sessions: 0, level: 1 };
+    customWords = {};
+    customPhrases = {};
+    knownWords = {};
+    await saveProgress();
+    await saveCustomWords();
+    await saveCustomPhrases();
+    await saveKnownWords();
+    $("#zr-level").value = 1;
+    updateLevelLabel();
+    renderStats();
+    renderWordList();
+    $("#zr-output").innerHTML = "";
+    $("#zr-process-msg").textContent = "Всё сброшено — можно начинать заново со своих слов.";
   });
 
   $("#zr-toggle-words").addEventListener("click", () => {

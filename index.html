@@ -76,7 +76,7 @@
 
   <div class="note" id="ext-bridge-panel">
     <b>🔗 Связь с расширением Chrome</b><br />
-    <div style="font-size:12px; margin:8px 0;">Работает только если эта страница открыта через локальный сервер (<code>http://localhost</code>), не через двойной клик по файлу. ID расширения смотри в <code>chrome://extensions</code> (нужен Developer mode).</div>
+    <div style="font-size:12px; margin:8px 0;">Работает, если страница открыта через <code>https://твой-логин.github.io/...</code> (GitHub Pages) или через локальный сервер (<code>http://localhost</code>) — но НЕ через двойной клик по файлу (<code>file://</code>). ID расширения смотри в <code>chrome://extensions</code> (нужен Developer mode).</div>
     <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
       <input type="text" id="ext-id-input" placeholder="ID расширения" style="padding:8px 10px; border:1px solid var(--line); border-radius:6px; font-size:12.5px; flex:1; min-width:200px;" />
       <button id="ext-sync-btn" style="padding:8px 14px; border-radius:6px; border:1px solid var(--jade-deep); background:var(--jade-deep); color:var(--paper); cursor:pointer; font-size:12.5px; font-weight:600;">Синхронизировать словарь</button>
@@ -86,7 +86,7 @@
 
   <div class="note">
     <b>Как это работает вместе:</b> все четыре инструмента используют один и тот же <code>localStorage</code> этого браузера — слово, добавленное в Reading Bridge, сразу видно в Прогрессе и Тон-тренажёре, а освоенные слова автоматически подпитывают Деревню.<br /><br />
-    <b>Важно:</b> это работает надёжно в Chrome при открытии файлов напрямую (двойным кликом). Если что-то не подхватывается между страницами — открой папку через локальный сервер: в терминале перейди в эту папку и запусти <code>python3 -m http.server 8000</code>, затем открой <code>http://localhost:8000</code> в браузере. Так гарантированно все страницы будут в одном хранилище независимо от браузера.
+    <b>Важно:</b> открывай через <code>https://твой-логин.github.io/...</code> (GitHub Pages) — тогда всё, включая связь с расширением, работает надёжно. Двойной клик по файлу (<code>file://</code>) тоже работает для самих инструментов между собой в Chrome, но НЕ для связи с расширением — для неё нужен именно http(s)-адрес (GitHub Pages или localhost).
   </div>
 </div>
 
@@ -102,14 +102,14 @@
     localStorage.setItem(EXT_ID_KEY, extId);
 
     if (!window.chrome || !chrome.runtime || !chrome.runtime.sendMessage) {
-      msg.textContent = "chrome.runtime недоступен — открой эту страницу через http://localhost, не через файл.";
+      msg.textContent = "chrome.runtime недоступен — открой эту страницу через https://... (GitHub Pages) или http://localhost, не через файл напрямую.";
       return;
     }
 
     msg.textContent = "Соединяюсь...";
     chrome.runtime.sendMessage(extId, { action: "getState" }, (response) => {
       if (chrome.runtime.lastError || !response) {
-        msg.textContent = "Не удалось связаться с расширением: " + (chrome.runtime.lastError ? chrome.runtime.lastError.message : "нет ответа") + ". Проверь ID и что страница открыта через localhost.";
+        msg.textContent = "Не удалось связаться с расширением: " + (chrome.runtime.lastError ? chrome.runtime.lastError.message : "нет ответа") + ". Проверь ID расширения, что оно обновлено (Reload в chrome://extensions) и что страница открыта через https://...github.io или localhost.";
         return;
       }
 
