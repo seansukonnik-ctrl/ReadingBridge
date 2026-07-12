@@ -8,6 +8,9 @@ if (!window.storage) {
   };
 }
 </script>
+<div style="max-width:900px;margin:0 auto;padding:14px 22px 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+  <a href="index.html" style="font-size:12.5px;color:#3c6e5e;text-decoration:none;">← Назад ко всем инструментам</a>
+</div>
 <div id="zh-dash-root" data-reading-bridge-suite="true"></div>
 <style>
 #zh-dash-root {
@@ -171,6 +174,7 @@ table.zd-table tr.due-row { background: var(--due-bg); }
   const STORAGE_KEY_PROGRESS = "zh-reader-progress";
   const STORAGE_KEY_CUSTOM_WORDS = "zh-reader-custom-words";
   const STORAGE_KEY_CUSTOM_PHRASES = "zh-reader-custom-phrases";
+  const STORAGE_KEY_KNOWN_WORDS = "zh-reader-known-words";
   const MASTERY_THRESHOLD = 5;
   const DAY = 24 * 60 * 60 * 1000;
 
@@ -187,6 +191,7 @@ table.zd-table tr.due-row { background: var(--due-bg); }
   let progress = { exposures: {}, sessions: 0, level: 1 };
   let customWords = {};
   let customPhrases = {};
+  let knownWords = {};
   let zhVoice = null;
   let reviewQueue = [];
   let reviewIndex = 0;
@@ -234,7 +239,7 @@ table.zd-table tr.due-row { background: var(--due-bg); }
         <div class="zd-sub zd-sans">Прогресс и повторение по всем словам и фразам из Reading Bridge</div>
       </div>
       <div class="zd-stats zd-sans">
-        <div class="zd-stat"><div class="zd-stat-num" id="zd-total">0</div><div class="zd-stat-label">В словаре</div></div>
+        <div class="zd-stat"><div class="zd-stat-num" id="zd-total">0</div><div class="zd-stat-label">Активных слов</div></div>
         <div class="zd-stat"><div class="zd-stat-num" id="zd-mastered">0</div><div class="zd-stat-label">Освоено</div></div>
         <div class="zd-stat"><div class="zd-stat-num due" id="zd-due">0</div><div class="zd-stat-label">Пора повторить</div></div>
       </div>
@@ -255,6 +260,7 @@ table.zd-table tr.due-row { background: var(--due-bg); }
 
     <div class="zd-panel">
       <input type="text" class="zd-search zd-sans" id="zd-search" placeholder="Поиск по слову, pinyin или переводу..." />
+      <div class="zd-sans" style="font-size:11px; color:var(--ink-soft); margin:-8px 0 12px;">Тут только твоя активная лексика (своё + отмеченное «знаю» + встреченное). Весь каталог HSK1-2 — в Reading Bridge, в панели словаря.</div>
       <table class="zd-table zd-sans">
         <thead>
           <tr>
@@ -280,8 +286,17 @@ table.zd-table tr.due-row { background: var(--due-bg); }
     const wd = Object.assign({}, BUILTIN_WORDS, customWords);
     const pd = Object.assign({}, BUILTIN_PHRASES, customPhrases);
     const list = [];
-    Object.keys(wd).forEach(en => list.push({ en, type: "word", entry: wd[en] }));
-    Object.keys(pd).forEach(en => list.push({ en, type: "phrase", entry: pd[en] }));
+    // Only show your ACTIVE vocabulary here (self-added, marked "know", or
+    // already encountered via Reading Bridge) — not the whole static HSK
+    // catalog. The full catalog is for browsing in Reading Bridge itself.
+    Object.keys(wd).forEach(en => {
+      const isActive = customWords.hasOwnProperty(en) || !!knownWords[en] || !!progress.exposures[en];
+      if (isActive) list.push({ en, type: "word", entry: wd[en] });
+    });
+    Object.keys(pd).forEach(en => {
+      const isActive = customPhrases.hasOwnProperty(en) || !!knownWords[en] || !!progress.exposures[en];
+      if (isActive) list.push({ en, type: "phrase", entry: pd[en] });
+    });
     return list;
   }
 
@@ -502,6 +517,10 @@ table.zd-table tr.due-row { background: var(--due-bg); }
     try {
       const ph = await window.storage.get(STORAGE_KEY_CUSTOM_PHRASES);
       if (ph && ph.value) customPhrases = JSON.parse(ph.value);
+    } catch(e) {}
+    try {
+      const k = await window.storage.get(STORAGE_KEY_KNOWN_WORDS);
+      if (k && k.value) knownWords = JSON.parse(k.value);
     } catch(e) {}
     renderAll();
   }
