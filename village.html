@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>我的中文村 — Моя китайская деревня</title>
+<style>
+  :root {
+    --paper: #f6f1e7;
+    --ink: #2b2620;
+    --ink-soft: #5c5448;
+    --jade: #3c6e5e;
+    --jade-deep: #244a3e;
+    --rust: #a3492f;
+    --gold: #b8863b;
+    --line: #ddd2bd;
+    --card-bg: #fffdf9;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--paper);
+    background-image:
+      radial-gradient(ellipse at top left, rgba(60,110,94,0.07), transparent 55%),
+      radial-gradient(ellipse at bottom right, rgba(163,73,47,0.06), transparent 55%);
+    color: var(--ink);
+    min-height: 100vh;
+  }
+  .wrap { max-width: 920px; margin: 0 auto; padding: 24px 20px 60px; }
+
+  header { display:flex; justify-content:space-between; align-items:flex-end; gap:16px; flex-wrap:wrap; border-bottom: 1px solid var(--line); padding-bottom: 18px; margin-bottom: 22px; }
+  h1 { font-family: Georgia, serif; font-size: 28px; color: var(--jade-deep); margin: 0; }
+  h1 .cn { color: var(--rust); font-style: italic; margin-left: 6px; }
+  .subtitle { font-size: 13px; color: var(--ink-soft); margin-top: 4px; }
+  .top-stats { display:flex; gap: 20px; }
+  .top-stat { text-align:right; }
+  .top-stat b { display:block; font-size: 22px; color: var(--jade-deep); }
+  .top-stat span { font-size: 10.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--ink-soft); }
+
+  .scene { text-align:center; font-size: 46px; margin: 6px 0 4px; letter-spacing: 6px; }
+  .scene-label { text-align:center; font-size: 13px; color: var(--ink-soft); margin-bottom: 22px; }
+
+  .card { background: var(--card-bg); border: 1px solid var(--line); border-radius: 10px; padding: 18px; margin-bottom: 18px; }
+  .card h2 { font-size: 15px; margin: 0 0 12px; color: var(--jade-deep); }
+
+  .buildings { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+  .building { border: 1px solid var(--line); border-radius: 8px; padding: 12px; text-align:center; background: #fffefb; }
+  .building .icon { font-size: 30px; }
+  .building .name { font-size: 12px; font-weight: 600; margin: 6px 0 4px; min-height: 30px; }
+  .building .stars { color: var(--gold); font-size: 13px; letter-spacing: 1px; }
+  .bar-track { height: 6px; background: var(--line); border-radius: 3px; margin-top: 8px; overflow: hidden; }
+  .bar-fill { height: 100%; background: var(--jade); }
+  .building.complete { border-color: var(--rust); background: #fdf6f0; }
+  .complete-badge { font-size: 10px; color: var(--rust); font-weight: 700; margin-top: 4px; }
+  .mark-complete-btn { margin-top: 8px; font-size: 10.5px; padding: 4px 8px; border-radius: 5px; border: 1px solid var(--jade-deep); background: transparent; color: var(--jade-deep); cursor:pointer; }
+  .mark-complete-btn:hover { background: #e3ece7; }
+
+  .log-row { display:flex; gap: 10px; flex-wrap: wrap; align-items:center; }
+  select, input[type=number], input[type=text] {
+    font-family: inherit; font-size: 13px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; background: #fffdf9;
+  }
+  .btn { font-size: 13px; font-weight: 600; padding: 9px 16px; border-radius: 6px; border: 1px solid var(--jade-deep); background: var(--jade-deep); color: var(--paper); cursor: pointer; }
+  .btn:hover { background: var(--jade); border-color: var(--jade); }
+  .btn.secondary { background: transparent; color: var(--jade-deep); }
+  .btn.secondary:hover { background: #e3ece7; }
+  .hint { font-size: 11.5px; color: var(--ink-soft); margin-top: 8px; line-height:1.5; }
+  .msg { font-size: 12px; color: var(--jade-deep); min-height: 16px; margin-top: 6px; }
+
+  .streak-line { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; }
+  .streak-num { font-size: 24px; font-weight: 700; color: var(--rust); }
+
+  textarea { width:100%; min-height: 70px; font-family: monospace; font-size: 11px; padding: 8px; border: 1px solid var(--line); border-radius: 6px; background: #fffdf9; }
+
+  .log-feed { max-height: 180px; overflow-y:auto; font-size: 12.5px; }
+  .log-feed .entry { display:flex; justify-content:space-between; padding: 5px 0; border-bottom: 1px solid var(--line); }
+  .log-feed .entry .t { color: var(--ink-soft); }
+  .empty { color: var(--ink-soft); font-size: 12.5px; text-align:center; padding: 10px; }
+</style>
+</head>
+<body data-reading-bridge-suite="true">
+<div class="wrap">
+  <header>
+    <div>
+      <h1>我的中文村<span class="cn">My Chinese Village</span></h1>
+      <div class="subtitle">Деревня растёт вместе с твоей программой — Phase 0 → Phase 4</div>
+    </div>
+    <div class="top-stats">
+      <div class="top-stat"><b id="rice-count">0</b><span>米 риса</span></div>
+      <div class="top-stat"><b id="village-level">0</b><span>Уровень деревни</span></div>
+    </div>
+  </header>
+
+  <svg id="village-svg" viewBox="0 0 840 300" style="width:100%; height:auto; display:block; margin-bottom:6px;"></svg>
+  <div class="scene-label" id="scene-label">Маленький лагерь на краю поля</div>
+
+  <div class="card">
+    <div class="streak-line">
+      <div>
+        <div class="streak-num"><span id="streak-current">0</span> 🔥</div>
+        <div class="hint" style="margin-top:0;">дней подряд с активностью (лучший: <span id="streak-best">0</span>)</div>
+      </div>
+      <div class="hint" style="max-width:320px; text-align:right;">Пропуск дня ничего не ломает — постройки не откатываются назад. Это просто счётчик, не наказание.</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Постройки</h2>
+    <div class="buildings" id="buildings"></div>
+  </div>
+
+  <div class="card">
+    <h2>Записать занятие</h2>
+    <div class="log-row">
+      <select id="activity-select"></select>
+      <input type="number" id="rice-input" min="1" style="width:70px;" />
+      <select id="building-select"></select>
+      <button class="btn" id="log-btn">Записать</button>
+    </div>
+    <div class="msg" id="log-msg"></div>
+  </div>
+
+  <div class="card">
+    <h2>Reading Bridge</h2>
+    <div class="hint" style="margin-top:0; margin-bottom:8px;" id="rb-status">Проверяю локальные данные Reading Bridge...</div>
+    <div class="log-row">
+      <button class="btn secondary" id="rb-refresh-btn">🔄 Обновить из Reading Bridge</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Импорт вручную (если Reading Bridge открыт в Claude, не тут)</h2>
+    <div class="hint" style="margin-top:0; margin-bottom:8px;">В дашборде Reading Bridge нажми «Экспорт для деревни», скопируй и вставь сюда.</div>
+    <textarea id="import-input" placeholder='{"mastered": 12, "sessions": 8, ...}'></textarea>
+    <div class="log-row" style="margin-top:8px;">
+      <button class="btn secondary" id="import-btn">Импортировать</button>
+    </div>
+    <div class="msg" id="import-msg"></div>
+  </div>
+
+  <div class="card">
+    <h2>Последние записи</h2>
+    <div class="log-feed" id="log-feed"></div>
+  </div>
+
+  <div class="card">
+    <button class="btn secondary" id="reset-btn" style="border-color:var(--rust); color:var(--rust);">Сбросить всё</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  const STORAGE_KEY = "zh-village-state";
+  const DAY = 24*60*60*1000;
+
+  const BUILDINGS = [
+    { id: "phase0", name: "Основание — тоны и pinyin", icon: "🪨" },
+    { id: "phase1", name: "Школа — лексика и иероглифы", icon: "🏫" },
+    { id: "phase2", name: "Рынок — разговорная практика", icon: "🏮" },
+    { id: "phase3", name: "Постоялый двор — языковой обмен", icon: "🏯" },
+    { id: "phase4", name: "Врата мастерства", icon: "⛩️" }
+  ];
+  const LEVEL_THRESHOLDS = [0, 20, 60, 120, 200, 300]; // cumulative rice for levels 1..5
+
+  const BUILDING_VISUALS = {
+    phase0: { top:"#cbbfa5", left:"#a89a7d", right:"#8c7d61", roofTop:"#5c8a76", roofSide:"#3c6e5e" },
+    phase1: { top:"#e0b378", left:"#c99354", right:"#a97638", roofTop:"#c65c42", roofSide:"#a3492f" },
+    phase2: { top:"#e8a37e", left:"#d98b5f", right:"#b96d44", roofTop:"#d9a53f", roofSide:"#b8863b" },
+    phase3: { top:"#7fa89a", left:"#5c8a7a", right:"#3f6d5e", roofTop:"#546c85", roofSide:"#3a5068" },
+    phase4: { top:"#e8cd94", left:"#d4af6a", right:"#b3904f", roofTop:"#2f5548", roofSide:"#244a3e" }
+  };
+
+  const VILLAGE_POSITIONS = [
+    { x: 100, y: 235 },
+    { x: 260, y: 190 },
+    { x: 420, y: 230 },
+    { x: 580, y: 190 },
+    { x: 740, y: 235 }
+  ];
+
+  function isoDiamond(cx, cy, w, h, fill, opacity){
+    const hw = w/2, hh = h/2;
+    return `<polygon points="${cx},${cy-hh} ${cx+hw},${cy} ${cx},${cy+hh} ${cx-hw},${cy}" fill="${fill}" opacity="${opacity||1}"/>`;
+  }
+
+  function isoCube(cx, baseY, w, h, height, c){
+    const hw = w/2, hh = h/2;
+    const topY = baseY - height;
+    const top = `${cx},${topY-hh} ${cx+hw},${topY} ${cx},${topY+hh} ${cx-hw},${topY}`;
+    const left = `${cx-hw},${baseY} ${cx-hw},${topY} ${cx},${topY+hh} ${cx},${baseY+hh}`;
+    const right = `${cx+hw},${baseY} ${cx+hw},${topY} ${cx},${topY+hh} ${cx},${baseY+hh}`;
+    return `<polygon points="${top}" fill="${c.top}"/><polygon points="${left}" fill="${c.left}"/><polygon points="${right}" fill="${c.right}"/>`;
+  }
+
+  function isoRoof(cx, baseY, w, colors){
+    const skirtW = w * 1.45;
+    let svg = isoCube(cx, baseY, skirtW, skirtW/2, 12, { top: colors.roofTop, left: colors.roofSide, right: colors.roofSide });
+    return svg;
+  }
+
+  function buildingSvg(id, level, complete, cx, groundY){
+    const c = BUILDING_VISUALS[id];
+    const groundW = 130, groundH = 65;
+    let svg = isoDiamond(cx, groundY, groundW, groundH, "#e5dcc7", 0.9);
+
+    if (level === 0 && !complete) {
+      // empty plot — just a small sprout marker
+      svg += `<circle cx="${cx}" cy="${groundY-3}" r="4" fill="#8fa985" opacity="0.6"/>`;
+      return svg;
+    }
+
+    const effLevel = complete ? 5 : level;
+    const bodyW = 56, bodyH = 28, blockH = 15;
+    let curBaseY = groundY - 6;
+    for (let i = 0; i < effLevel; i++) {
+      svg += isoCube(cx, curBaseY, bodyW, bodyH, blockH, c);
+      curBaseY -= blockH;
+    }
+    svg += isoRoof(cx, curBaseY, bodyW, c);
+    curBaseY -= 12;
+    if (effLevel >= 4) {
+      svg += isoRoof(cx, curBaseY, bodyW * 0.7, c);
+      curBaseY -= 10;
+    }
+    if (complete) {
+      svg += `<circle cx="${cx}" cy="${curBaseY-6}" r="9" fill="#f2d98b" opacity="0.55"/>`;
+      svg += `<text x="${cx}" y="${curBaseY-2}" font-size="14" text-anchor="middle">★</text>`;
+    }
+    return svg;
+  }
+
+  function renderVillageScene(){
+    const svgEl = document.getElementById("village-svg");
+    let inner = "";
+    // road connecting the plots
+    const pts = VILLAGE_POSITIONS.map(p => `${p.x},${p.y+8}`).join(" ");
+    inner += `<polyline points="${pts}" fill="none" stroke="#c9bb9e" stroke-width="4" stroke-dasharray="2 8" stroke-linecap="round" opacity="0.7"/>`;
+
+    BUILDINGS.forEach((b, i) => {
+      const bd = state.buildings[b.id];
+      const lvl = bd.complete ? 5 : levelOf(bd.spent);
+      const pos = VILLAGE_POSITIONS[i];
+      inner += buildingSvg(b.id, lvl, bd.complete, pos.x, pos.y);
+    });
+
+    svgEl.innerHTML = inner;
+  }
+
+  const ACTIVITIES = [
+    { id: "hellochinese", label: "Урок HelloChinese", rice: 8, building: "phase1" },
+    { id: "yoyo", label: "Видео Yoyo Chinese", rice: 6, building: "phase0" },
+    { id: "recording", label: "Само-запись / произношение", rice: 5, building: "phase0" },
+    { id: "readingbridge", label: "Сессия Reading Bridge (вручную)", rice: 5, building: "phase1" },
+    { id: "exchange", label: "Языковой обмен (HelloTalk/Tandem)", rice: 12, building: "phase3" },
+    { id: "other", label: "Другое", rice: 5, building: "phase1" }
+  ];
+
+  function defaultState(){
+    return {
+      rice: 0,
+      buildings: Object.fromEntries(BUILDINGS.map(b => [b.id, { spent: 0, complete: false }])),
+      log: [],
+      streak: { current: 0, best: 0, lastDate: null },
+      readingBridgeSnapshot: null
+    };
+  }
+
+  let state = defaultState();
+
+  function load(){
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) state = Object.assign(defaultState(), JSON.parse(raw));
+    } catch(e) { console.error("Load error", e); }
+  }
+  function save(){
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+    catch(e) { console.error("Save error", e); }
+  }
+
+  function levelOf(spent){
+    let lvl = 0;
+    for (let i = 1; i < LEVEL_THRESHOLDS.length; i++) {
+      if (spent >= LEVEL_THRESHOLDS[i]) lvl = i;
+    }
+    return lvl;
+  }
+  function progressToNext(spent, lvl){
+    if (lvl >= 5) return 1;
+    const cur = LEVEL_THRESHOLDS[lvl];
+    const next = LEVEL_THRESHOLDS[lvl+1];
+    return Math.min(1, (spent - cur) / (next - cur));
+  }
+
+  function totalVillageLevel(){
+    return BUILDINGS.reduce((sum, b) => {
+      const bd = state.buildings[b.id];
+      return sum + (bd.complete ? 5 : levelOf(bd.spent));
+    }, 0);
+  }
+
+  function sceneLabelFor(level){
+    if (level === 0) return "Маленький лагерь на краю поля";
+    if (level < 5) return "Первые засеянные поля";
+    if (level < 10) return "Растущее поселение";
+    if (level < 16) return "Деревня с рынком и огнями";
+    if (level < 22) return "Процветающий город";
+    return "Город мастерства";
+  }
+
+  function fmtDate(ts){
+    const d = new Date(ts);
+    return d.toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit" }) + " " + d.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+  }
+
+  function dayKey(ts){
+    const d = new Date(ts);
+    return d.getFullYear() + "-" + d.getMonth() + "-" + d.getDate();
+  }
+
+  function bumpStreak(){
+    const today = dayKey(Date.now());
+    const last = state.streak.lastDate;
+    if (last === today) return; // already logged today, no change
+    if (last === null) {
+      state.streak.current = 1;
+    } else {
+      const gapDays = Math.round((Date.now() - new Date(last).setHours(0,0,0,0)) / DAY);
+      if (gapDays === 1) state.streak.current += 1;
+      else state.streak.current = 1; // gap — reset counter, no other penalty
+    }
+    state.streak.best = Math.max(state.streak.best, state.streak.current);
+    state.streak.lastDate = today;
+  }
+
+  function addRiceToBuilding(buildingId, amount){
+    const b = state.buildings[buildingId];
+    if (!b || b.complete) return;
+    b.spent += amount;
+  }
+
+  function render(){
+    document.getElementById("rice-count").textContent = state.rice;
+    const totalLevel = totalVillageLevel();
+    document.getElementById("village-level").textContent = totalLevel;
+    document.getElementById("scene-label").textContent = sceneLabelFor(totalLevel);
+    renderVillageScene();
+
+    document.getElementById("streak-current").textContent = state.streak.current;
+    document.getElementById("streak-best").textContent = state.streak.best;
+
+    const buildingsEl = document.getElementById("buildings");
+    buildingsEl.innerHTML = BUILDINGS.map(b => {
+      const bd = state.buildings[b.id];
+      const lvl = bd.complete ? 5 : levelOf(bd.spent);
+      const pct = bd.complete ? 100 : Math.round(progressToNext(bd.spent, lvl) * 100);
+      const stars = "★".repeat(lvl) + "☆".repeat(5 - lvl);
+      return `<div class="building ${bd.complete ? 'complete' : ''}">
+        <div class="icon">${b.icon}</div>
+        <div class="name">${b.name}</div>
+        <div class="stars">${stars}</div>
+        <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
+        ${bd.complete ? `<div class="complete-badge">✓ ФАЗА ЗАВЕРШЕНА</div>` : `<button class="mark-complete-btn" data-complete="${b.id}">Отметить фазу завершённой</button>`}
+      </div>`;
+    }).join("");
+
+    buildingsEl.querySelectorAll("[data-complete]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        state.buildings[btn.dataset.complete].complete = true;
+        save(); render();
+      });
+    });
+
+    const feed = document.getElementById("log-feed");
+    if (!state.log.length) {
+      feed.innerHTML = `<div class="empty">Пока пусто — запиши первое занятие выше.</div>`;
+    } else {
+      feed.innerHTML = state.log.slice(-15).reverse().map(e =>
+        `<div class="entry"><span>${e.label} <b>+${e.rice}米</b></span><span class="t">${fmtDate(e.ts)}</span></div>`
+      ).join("");
+    }
+  }
+
+  // ---- activity form ----
+  const activitySelect = document.getElementById("activity-select");
+  activitySelect.innerHTML = ACTIVITIES.map(a => `<option value="${a.id}">${a.label}</option>`).join("");
+  const buildingSelect = document.getElementById("building-select");
+  buildingSelect.innerHTML = BUILDINGS.map(b => `<option value="${b.id}">${b.icon} ${b.name}</option>`).join("");
+  const riceInput = document.getElementById("rice-input");
+
+  function syncActivityDefaults(){
+    const act = ACTIVITIES.find(a => a.id === activitySelect.value);
+    riceInput.value = act.rice;
+    buildingSelect.value = act.building;
+  }
+  activitySelect.addEventListener("change", syncActivityDefaults);
+  syncActivityDefaults();
+
+  document.getElementById("log-btn").addEventListener("click", () => {
+    const act = ACTIVITIES.find(a => a.id === activitySelect.value);
+    const amount = Math.max(1, parseInt(riceInput.value, 10) || act.rice);
+    const targetBuilding = buildingSelect.value;
+
+    state.rice += amount;
+    addRiceToBuilding(targetBuilding, amount);
+    bumpStreak();
+    state.log.push({ label: act.label, rice: amount, ts: Date.now(), building: targetBuilding });
+    save();
+    render();
+    document.getElementById("log-msg").textContent = `Записано: ${act.label} (+${amount}米)`;
+    setTimeout(() => { document.getElementById("log-msg").textContent = ""; }, 3000);
+  });
+
+  // ---- import from Reading Bridge dashboard ----
+  document.getElementById("import-btn").addEventListener("click", () => {
+    const raw = document.getElementById("import-input").value.trim();
+    const msg = document.getElementById("import-msg");
+    if (!raw) { msg.textContent = "Вставь сюда JSON из дашборда Reading Bridge."; return; }
+
+    let parsed;
+    try { parsed = JSON.parse(raw); }
+    catch(e) { msg.textContent = "Не похоже на валидный JSON."; return; }
+
+    const prev = state.readingBridgeSnapshot || { mastered: 0, sessions: 0 };
+    const newMastered = Math.max(0, (parsed.mastered || 0) - prev.mastered);
+    const newSessions = Math.max(0, (parsed.sessions || 0) - prev.sessions);
+
+    if (newMastered === 0 && newSessions === 0) {
+      msg.textContent = "Ничего нового с прошлого импорта — прогресс уже учтён.";
+      return;
+    }
+
+    const earned = newMastered * 15 + newSessions * 5;
+    state.rice += earned;
+    addRiceToBuilding("phase1", earned);
+    state.readingBridgeSnapshot = { mastered: parsed.mastered || 0, sessions: parsed.sessions || 0 };
+    state.log.push({ label: `Reading Bridge: +${newMastered} освоено, +${newSessions} сессий`, rice: earned, ts: Date.now(), building: "phase1" });
+    bumpStreak();
+    save();
+    render();
+    msg.textContent = `Импортировано: +${earned}米 в Школу.`;
+    document.getElementById("import-input").value = "";
+  });
+
+  document.getElementById("reset-btn").addEventListener("click", () => {
+    if (!confirm("Точно сбросить весь прогресс деревни? Это необратимо.")) return;
+    state = defaultState();
+    save();
+    render();
+  });
+
+  function applyReadingBridgeDelta(mastered, sessions, source){
+    const prev = state.readingBridgeSnapshot || { mastered: 0, sessions: 0 };
+    const newMastered = Math.max(0, (mastered || 0) - prev.mastered);
+    const newSessions = Math.max(0, (sessions || 0) - prev.sessions);
+    if (newMastered === 0 && newSessions === 0) return 0;
+    const earned = newMastered * 15 + newSessions * 5;
+    state.rice += earned;
+    addRiceToBuilding("phase1", earned);
+    state.readingBridgeSnapshot = { mastered: mastered || 0, sessions: sessions || 0 };
+    state.log.push({ label: `Reading Bridge (${source}): +${newMastered} освоено, +${newSessions} сессий`, rice: earned, ts: Date.now(), building: "phase1" });
+    bumpStreak();
+    return earned;
+  }
+
+  function readReadingBridgeLocal(){
+    try {
+      const raw = localStorage.getItem("zh-reader-progress");
+      if (!raw) return null;
+      const progress = JSON.parse(raw);
+      const exposures = progress.exposures || {};
+      const mastered = Object.values(exposures).filter(e => (typeof e === "number" ? 0 : (e.verified || 0)) >= 5).length;
+      const sessions = progress.sessions || 0;
+      return { mastered, sessions };
+    } catch(e) { return null; }
+  }
+
+  function syncFromLocalReadingBridge(){
+    const data = readReadingBridgeLocal();
+    const statusEl = document.getElementById("rb-status");
+    if (!data) {
+      statusEl.textContent = "Reading Bridge ещё не открывался в этом браузере — нет локальных данных. Если он открыт в Claude, а не тут, используй ручной импорт ниже.";
+      return;
+    }
+    const earned = applyReadingBridgeDelta(data.mastered, data.sessions, "авто");
+    statusEl.textContent = `Reading Bridge: ${data.mastered} освоено, ${data.sessions} сессий.${earned ? ` Начислено +${earned}米.` : ""}`;
+    save();
+    render();
+  }
+
+  document.getElementById("rb-refresh-btn").addEventListener("click", syncFromLocalReadingBridge);
+
+  load();
+  render();
+  syncFromLocalReadingBridge();
+})();
+</script>
+</body>
+</html>

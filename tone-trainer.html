@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Тон-тренажёр — Reading Bridge</title>
+<style>
+  :root {
+    --paper: #f6f1e7; --ink: #2b2620; --ink-soft: #5c5448;
+    --jade: #3c6e5e; --jade-deep: #244a3e; --rust: #a3492f;
+    --line: #ddd2bd; --card-bg: #fffdf9; --pinyin-bg: #e3ece7; --phrase-bg: #f0e3d6;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--paper);
+    background-image: radial-gradient(ellipse at top left, rgba(60,110,94,0.07), transparent 55%), radial-gradient(ellipse at bottom right, rgba(163,73,47,0.06), transparent 55%);
+    color: var(--ink); min-height: 100vh;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 24px 20px 60px; }
+  header { display:flex; justify-content:space-between; align-items:flex-end; gap:16px; flex-wrap:wrap; border-bottom: 1px solid var(--line); padding-bottom: 16px; margin-bottom: 22px; }
+  h1 { font-family: Georgia, serif; font-size: 26px; color: var(--jade-deep); margin:0; }
+  h1 .cn { color: var(--rust); font-style: italic; margin-left: 6px; }
+  .subtitle { font-size: 12.5px; color: var(--ink-soft); margin-top: 4px; }
+
+  .mode-switch { display:flex; gap:8px; margin-bottom: 18px; }
+  .mode-btn { flex:1; padding: 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--card-bg); cursor:pointer; font-size:13px; font-weight:600; color: var(--ink-soft); }
+  .mode-btn.active { background: var(--jade-deep); color: var(--paper); border-color: var(--jade-deep); }
+
+  .stats-row { display:flex; gap: 14px; margin-bottom: 16px; }
+  .stat-box { flex:1; background: var(--card-bg); border:1px solid var(--line); border-radius:8px; padding: 10px; text-align:center; }
+  .stat-box b { display:block; font-size:20px; color: var(--jade-deep); }
+  .stat-box span { font-size: 10px; text-transform:uppercase; color: var(--ink-soft); letter-spacing:.05em; }
+
+  .card { background: var(--card-bg); border: 1px solid var(--line); border-radius: 12px; padding: 30px 24px; text-align:center; margin-bottom: 16px; }
+  .audio-btn { background: var(--jade-deep); color: var(--paper); border:none; border-radius: 24px; padding: 14px 28px; font-size: 16px; cursor:pointer; margin-bottom: 22px; }
+  .audio-btn:hover { background: var(--jade); }
+  .replay-hint { font-size: 11.5px; color: var(--ink-soft); margin-bottom: 22px; margin-top:-14px; }
+
+  .tone-options { display:grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .tone-btn { padding: 16px 6px; border-radius: 10px; border: 1px solid var(--line); background: #fffefb; cursor:pointer; font-size: 22px; font-weight:700; color: var(--jade-deep); }
+  .tone-btn:hover { background: var(--pinyin-bg); }
+  .tone-btn .num { display:block; font-size: 11px; color: var(--ink-soft); margin-top: 4px; font-weight:600; }
+
+  .meaning-options { display:grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .meaning-btn { padding: 14px 10px; border-radius: 8px; border: 1px solid var(--line); background: #fffefb; cursor:pointer; font-size: 14px; color: var(--ink); }
+  .meaning-btn:hover { background: var(--pinyin-bg); }
+
+  .feedback { min-height: 60px; margin-top: 18px; }
+  .feedback.correct { color: var(--jade-deep); }
+  .feedback.wrong { color: var(--rust); }
+  .feedback .answer { font-size: 22px; font-weight:700; margin: 6px 0; }
+  .feedback .answer.phrase-style { color: var(--rust); }
+  .next-btn { margin-top: 10px; padding: 8px 20px; border-radius: 6px; border: 1px solid var(--jade-deep); background: var(--jade-deep); color: var(--paper); cursor:pointer; font-size: 13px; font-weight:600; }
+  .next-btn:hover { background: var(--jade); }
+
+  .empty { text-align:center; padding: 30px; color: var(--ink-soft); font-size: 13px; }
+  .footer-link { text-align:center; margin-top: 20px; font-size:12px; }
+  .footer-link a { color: var(--jade-deep); }
+</style>
+</head>
+<body data-reading-bridge-suite="true">
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Тон-тренажёр<span class="cn">听力练习</span></h1>
+      <div class="subtitle">Слушаешь — угадываешь. Работает по тому же словарю, что и Reading Bridge.</div>
+    </div>
+  </header>
+
+  <div class="mode-switch">
+    <button class="mode-btn active" id="mode-tone">Определи тон</button>
+    <button class="mode-btn" id="mode-meaning">Определи значение</button>
+  </div>
+
+  <div class="stats-row">
+    <div class="stat-box"><b id="stat-correct">0</b><span>верно</span></div>
+    <div class="stat-box"><b id="stat-total">0</b><span>всего</span></div>
+    <div class="stat-box"><b id="stat-streak">0</b><span>подряд</span></div>
+    <div class="stat-box"><b id="stat-best">0</b><span>рекорд</span></div>
+  </div>
+
+  <div id="game-area"></div>
+
+  <div class="footer-link">Верные ответы засчитываются в прогресс Reading Bridge того же браузера.</div>
+</div>
+
+<script>
+(function(){
+  const BUILTIN_WORDS = {
+    "i":{py:"wǒ",zh:"我"},"you":{py:"nǐ",zh:"你"},"he":{py:"tā",zh:"他"},"she":{py:"tā",zh:"她"},
+    "we":{py:"wǒmen",zh:"我们"},"they":{py:"tāmen",zh:"他们"},
+    "this":{py:"zhège",zh:"这个"},"that":{py:"nàge",zh:"那个"},"who":{py:"shéi",zh:"谁"},
+    "what":{py:"shénme",zh:"什么"},"where":{py:"nǎlǐ",zh:"哪里"},"when":{py:"shénme shíhou",zh:"什么时候"},
+    "why":{py:"wèishénme",zh:"为什么"},"how":{py:"zěnme",zh:"怎么"},
+    "yes":{py:"duì",zh:"对"},"no":{py:"bù",zh:"不"},"not":{py:"bù",zh:"不"},
+    "is":{py:"shì",zh:"是"},"am":{py:"shì",zh:"是"},"are":{py:"shì",zh:"是"},
+    "have":{py:"yǒu",zh:"有"},"has":{py:"yǒu",zh:"有"},
+    "want":{py:"xiǎng yào",zh:"想要"},"like":{py:"xǐhuan",zh:"喜欢"},"love":{py:"ài",zh:"爱"},
+    "go":{py:"qù",zh:"去"},"come":{py:"lái",zh:"来"},"eat":{py:"chī",zh:"吃"},"drink":{py:"hē",zh:"喝"},
+    "see":{py:"kànjiàn",zh:"看见"},"look":{py:"kàn",zh:"看"},"watch":{py:"kàn",zh:"看"},"listen":{py:"tīng",zh:"听"},
+    "say":{py:"shuō",zh:"说"},"speak":{py:"shuō",zh:"说"},"talk":{py:"shuōhuà",zh:"说话"},
+    "read":{py:"dú",zh:"读"},"write":{py:"xiě",zh:"写"},"buy":{py:"mǎi",zh:"买"},"sell":{py:"mài",zh:"卖"},
+    "work":{py:"gōngzuò",zh:"工作"},"study":{py:"xuéxí",zh:"学习"},"learn":{py:"xué",zh:"学"},"teach":{py:"jiāo",zh:"教"},
+    "sleep":{py:"shuìjiào",zh:"睡觉"},"rest":{py:"xiūxi",zh:"休息"},"walk":{py:"zǒulù",zh:"走路"},"run":{py:"pǎo",zh:"跑"},
+    "sit":{py:"zuò",zh:"坐"},"stand":{py:"zhàn",zh:"站"},"open":{py:"kāi",zh:"开"},"close":{py:"guān",zh:"关"},
+    "give":{py:"gěi",zh:"给"},"take":{py:"ná",zh:"拿"},"send":{py:"fā",zh:"发"},"wait":{py:"děng",zh:"等"},
+    "know":{py:"zhīdào",zh:"知道"},"think":{py:"xiǎng",zh:"想"},"understand":{py:"dǒng",zh:"懂"},
+    "remember":{py:"jìde",zh:"记得"},"forget":{py:"wàng",zh:"忘"},
+    "can":{py:"néng",zh:"能"},"cant":{py:"bùnéng",zh:"不能"},"must":{py:"bìxū",zh:"必须"},
+    "should":{py:"yīnggāi",zh:"应该"},"maybe":{py:"yěxǔ",zh:"也许"},
+    "today":{py:"jīntiān",zh:"今天"},"tomorrow":{py:"míngtiān",zh:"明天"},"yesterday":{py:"zuótiān",zh:"昨天"},
+    "now":{py:"xiànzài",zh:"现在"},"time":{py:"shíjiān",zh:"时间"},"day":{py:"tiān",zh:"天"},
+    "month":{py:"yuè",zh:"月"},"year":{py:"nián",zh:"年"},"week":{py:"xīngqī",zh:"星期"},
+    "morning":{py:"zǎoshang",zh:"早上"},"afternoon":{py:"xiàwǔ",zh:"下午"},"evening":{py:"wǎnshang",zh:"晚上"},"night":{py:"yèwǎn",zh:"夜晚"},
+    "big":{py:"dà",zh:"大"},"small":{py:"xiǎo",zh:"小"},"good":{py:"hǎo",zh:"好"},"bad":{py:"huài",zh:"坏"},
+    "beautiful":{py:"piàoliang",zh:"漂亮"},"ugly":{py:"chǒu",zh:"丑"},"happy":{py:"kāixīn",zh:"开心"},
+    "sad":{py:"nánguò",zh:"难过"},"angry":{py:"shēngqì",zh:"生气"},"tired":{py:"lèi",zh:"累"},
+    "hot":{py:"rè",zh:"热"},"cold":{py:"lěng",zh:"冷"},"new":{py:"xīn",zh:"新"},"old":{py:"jiù",zh:"旧"},
+    "fast":{py:"kuài",zh:"快"},"slow":{py:"màn",zh:"慢"},"expensive":{py:"guì",zh:"贵"},"cheap":{py:"piányi",zh:"便宜"},
+    "easy":{py:"róngyì",zh:"容易"},"difficult":{py:"nán",zh:"难"},"hard":{py:"nán",zh:"难"},
+    "many":{py:"hěnduō",zh:"很多"},"few":{py:"yìxiē",zh:"一些"},"all":{py:"dōu",zh:"都"},"some":{py:"yìxiē",zh:"一些"},
+    "friend":{py:"péngyou",zh:"朋友"},"family":{py:"jiārén",zh:"家人"},"mother":{py:"māma",zh:"妈妈"},"father":{py:"bàba",zh:"爸爸"},
+    "son":{py:"érzi",zh:"儿子"},"daughter":{py:"nǚér",zh:"女儿"},"brother":{py:"gēge",zh:"哥哥"},"sister":{py:"jiějie",zh:"姐姐"},
+    "child":{py:"háizi",zh:"孩子"},"teacher":{py:"lǎoshī",zh:"老师"},"student":{py:"xuésheng",zh:"学生"},"doctor":{py:"yīshēng",zh:"医生"},
+    "money":{py:"qián",zh:"钱"},"food":{py:"shíwù",zh:"食物"},"water":{py:"shuǐ",zh:"水"},"tea":{py:"chá",zh:"茶"},
+    "coffee":{py:"kāfēi",zh:"咖啡"},"rice":{py:"mǐfàn",zh:"米饭"},"book":{py:"shū",zh:"书"},"phone":{py:"shǒujī",zh:"手机"},
+    "computer":{py:"diànnǎo",zh:"电脑"},"car":{py:"qìchē",zh:"汽车"},"house":{py:"fángzi",zh:"房子"},"home":{py:"jiā",zh:"家"},
+    "school":{py:"xuéxiào",zh:"学校"},"hospital":{py:"yīyuàn",zh:"医院"},"restaurant":{py:"fànguǎn",zh:"饭馆"},"shop":{py:"shāngdiàn",zh:"商店"},
+    "city":{py:"chéngshì",zh:"城市"},"country":{py:"guójiā",zh:"国家"},"road":{py:"lù",zh:"路"},"door":{py:"mén",zh:"门"},
+    "table":{py:"zhuōzi",zh:"桌子"},"chair":{py:"yǐzi",zh:"椅子"},"dog":{py:"gǒu",zh:"狗"},"cat":{py:"māo",zh:"猫"},
+    "bird":{py:"niǎo",zh:"鸟"},"fish":{py:"yú",zh:"鱼"},"fruit":{py:"shuǐguǒ",zh:"水果"},"vegetable":{py:"shūcài",zh:"蔬菜"},
+    "color":{py:"yánsè",zh:"颜色"},"red":{py:"hóngsè",zh:"红色"},"white":{py:"báisè",zh:"白色"},"black":{py:"hēisè",zh:"黑色"},
+    "blue":{py:"lánsè",zh:"蓝色"},"green":{py:"lǜsè",zh:"绿色"},"yellow":{py:"huángsè",zh:"黄色"},
+    "one":{py:"yī",zh:"一"},"two":{py:"èr",zh:"二"},"three":{py:"sān",zh:"三"},"four":{py:"sì",zh:"四"},"five":{py:"wǔ",zh:"五"},
+    "six":{py:"liù",zh:"六"},"seven":{py:"qī",zh:"七"},"eight":{py:"bā",zh:"八"},"nine":{py:"jiǔ",zh:"九"},"ten":{py:"shí",zh:"十"},
+    "hundred":{py:"bǎi",zh:"百"},"thousand":{py:"qiān",zh:"千"},
+    "please":{py:"qǐng",zh:"请"},"thanks":{py:"xièxie",zh:"谢谢"},"thank":{py:"xièxie",zh:"谢谢"},"sorry":{py:"duìbuqǐ",zh:"对不起"},
+    "hello":{py:"nǐhǎo",zh:"你好"},"goodbye":{py:"zàijiàn",zh:"再见"},
+    "very":{py:"hěn",zh:"很"},"also":{py:"yě",zh:"也"},"again":{py:"zài",zh:"再"},
+    "because":{py:"yīnwèi",zh:"因为"},"so":{py:"suǒyǐ",zh:"所以"},"but":{py:"dànshì",zh:"但是"},"and":{py:"hé",zh:"和"},
+    "or":{py:"huòzhě",zh:"或者"},"if":{py:"rúguǒ",zh:"如果"},"with":{py:"gēn",zh:"跟"},"without":{py:"méiyǒu",zh:"没有"},
+    "here":{py:"zhèlǐ",zh:"这里"},"there":{py:"nàlǐ",zh:"那里"},"up":{py:"shàng",zh:"上"},"down":{py:"xià",zh:"下"},
+    "in":{py:"lǐ",zh:"里"},"out":{py:"wài",zh:"外"},"left":{py:"zuǒ",zh:"左"},"right":{py:"yòu",zh:"右"},
+    "before":{py:"yǐqián",zh:"以前"},"after":{py:"yǐhòu",zh:"以后"},"airplane":{py:"fēijī",zh:"飞机"},"train":{py:"huǒchē",zh:"火车"},"bus":{py:"gōngjiāochē",zh:"公交车"},"bicycle":{py:"zìxíngchē",zh:"自行车"},"subway":{py:"dìtiě",zh:"地铁"},"taxi":{py:"chūzūchē",zh:"出租车"},"ticket":{py:"piào",zh:"票"},"airport":{py:"jīchǎng",zh:"机场"},"station":{py:"chēzhàn",zh:"车站"},"rain":{py:"yǔ",zh:"雨"},"snow":{py:"xuě",zh:"雪"},"wind":{py:"fēng",zh:"风"},"cloud":{py:"yún",zh:"云"},"sun":{py:"tàiyáng",zh:"太阳"},"moon":{py:"yuèliang",zh:"月亮"},"star":{py:"xīngxīng",zh:"星星"},"sky":{py:"tiānkōng",zh:"天空"},"mountain":{py:"shān",zh:"山"},"river":{py:"hé",zh:"河"},"sea":{py:"hǎi",zh:"海"},"lake":{py:"hú",zh:"湖"},"forest":{py:"sēnlín",zh:"森林"},"spring":{py:"chūntiān",zh:"春天"},"summer":{py:"xiàtiān",zh:"夏天"},"autumn":{py:"qiūtiān",zh:"秋天"},"winter":{py:"dōngtiān",zh:"冬天"},"head":{py:"tóu",zh:"头"},"hand":{py:"shǒu",zh:"手"},"foot":{py:"jiǎo",zh:"脚"},"eye":{py:"yǎnjing",zh:"眼睛"},"mouth":{py:"zuǐ",zh:"嘴"},"ear":{py:"ěrduo",zh:"耳朵"},"nose":{py:"bízi",zh:"鼻子"},"hair":{py:"tóufa",zh:"头发"},"face":{py:"liǎn",zh:"脸"},"body":{py:"shēntǐ",zh:"身体"},"clothes":{py:"yīfu",zh:"衣服"},"shoes":{py:"xié",zh:"鞋"},"hat":{py:"màozi",zh:"帽子"},"pants":{py:"kùzi",zh:"裤子"},"skirt":{py:"qúnzi",zh:"裙子"},"grandfather":{py:"yéye",zh:"爷爷"},"grandmother":{py:"nǎinai",zh:"奶奶"},"husband":{py:"zhàngfu",zh:"丈夫"},"wife":{py:"qīzi",zh:"妻子"},"uncle":{py:"shūshu",zh:"叔叔"},"aunt":{py:"āyí",zh:"阿姨"},"pen":{py:"bǐ",zh:"笔"},"pencil":{py:"qiānbǐ",zh:"铅笔"},"paper":{py:"zhǐ",zh:"纸"},"bag":{py:"bāo",zh:"包"},"desk":{py:"shūzhuō",zh:"书桌"},"blackboard":{py:"hēibǎn",zh:"黑板"},"exam":{py:"kǎoshì",zh:"考试"},"homework":{py:"zuòyè",zh:"作业"},"class":{py:"kè",zh:"课"},"chinese":{py:"zhōngwén",zh:"中文"},"math":{py:"shùxué",zh:"数学"},"english":{py:"yīngyǔ",zh:"英语"},"history":{py:"lìshǐ",zh:"历史"},"science":{py:"kēxué",zh:"科学"},"sick":{py:"bìng",zh:"病"},"medicine":{py:"yào",zh:"药"},"headache":{py:"tóuténg",zh:"头疼"},"fever":{py:"fāshāo",zh:"发烧"},"cough":{py:"késou",zh:"咳嗽"},"price":{py:"jiàgé",zh:"价格"},"discount":{py:"zhékòu",zh:"折扣"},"receipt":{py:"fāpiào",zh:"发票"},"wallet":{py:"qiánbāo",zh:"钱包"},"cash":{py:"xiànjīn",zh:"现金"},"sing":{py:"chànggē",zh:"唱歌"},"dance":{py:"tiàowǔ",zh:"跳舞"},"paint":{py:"huàhuà",zh:"画画"},"swim":{py:"yóuyǒng",zh:"游泳"},"climb":{py:"pá",zh:"爬"},"travel":{py:"lǚyóu",zh:"旅游"},"exercise":{py:"yùndòng",zh:"运动"},"cook":{py:"zuòfàn",zh:"做饭"},"clean":{py:"dǎsǎo",zh:"打扫"},"wash":{py:"xǐ",zh:"洗"},"worried":{py:"dānxīn",zh:"担心"},"surprised":{py:"jīngyà",zh:"惊讶"},"scared":{py:"hàipà",zh:"害怕"},"excited":{py:"xīngfèn",zh:"兴奋"},"bored":{py:"wúliáo",zh:"无聊"},"lonely":{py:"gūdú",zh:"孤独"},"interesting":{py:"yǒuqù",zh:"有趣"},"important":{py:"zhòngyào",zh:"重要"},"dangerous":{py:"wēixiǎn",zh:"危险"},"safe":{py:"ānquán",zh:"安全"},"dirty":{py:"zāng",zh:"脏"},"quiet":{py:"ānjìng",zh:"安静"},"noisy":{py:"chǎo",zh:"吵"},"comfortable":{py:"shūfu",zh:"舒服"},"convenient":{py:"fāngbiàn",zh:"方便"},"busy":{py:"máng",zh:"忙"},"short":{py:"ǎi",zh:"矮"},"tall":{py:"gāo",zh:"高"},"long":{py:"cháng",zh:"长"},"wide":{py:"kuān",zh:"宽"},"narrow":{py:"zhǎi",zh:"窄"},"heavy":{py:"zhòng",zh:"重"},"light":{py:"qīng",zh:"轻"},"thick":{py:"hòu",zh:"厚"},"thin":{py:"báo",zh:"薄"},"deep":{py:"shēn",zh:"深"},"shallow":{py:"qiǎn",zh:"浅"},"full":{py:"mǎn",zh:"满"},"empty":{py:"kōng",zh:"空"},"similar":{py:"xiāngsì",zh:"相似"},"wrong":{py:"cuò",zh:"错"},"correct":{py:"duì",zh:"对"},"north":{py:"běi",zh:"北"},"south":{py:"nán",zh:"南"},"east":{py:"dōng",zh:"东"},"west":{py:"xī",zh:"西"},"bank":{py:"yínháng",zh:"银行"},"park":{py:"gōngyuán",zh:"公园"},"library":{py:"túshūguǎn",zh:"图书馆"},"office":{py:"bàngōngshì",zh:"办公室"},"company":{py:"gōngsī",zh:"公司"},"factory":{py:"gōngchǎng",zh:"工厂"},"window":{py:"chuānghu",zh:"窗户"},"wall":{py:"qiáng",zh:"墙"},"floor":{py:"dìbǎn",zh:"地板"},"kitchen":{py:"chúfáng",zh:"厨房"},"bathroom":{py:"wèishēngjiān",zh:"卫生间"},"bedroom":{py:"wòshì",zh:"卧室"},"livingroom":{py:"kètīng",zh:"客厅"},"key":{py:"yàoshi",zh:"钥匙"},"umbrella":{py:"yǔsǎn",zh:"雨伞"},"glasses":{py:"yǎnjìng",zh:"眼镜"},"mirror":{py:"jìngzi",zh:"镜子"},"soap":{py:"féizào",zh:"肥皂"},"towel":{py:"máojīn",zh:"毛巾"},"newspaper":{py:"bàozhǐ",zh:"报纸"},"magazine":{py:"zázhì",zh:"杂志"},"letter":{py:"xìn",zh:"信"},"gift":{py:"lǐwù",zh:"礼物"},"birthday":{py:"shēngrì",zh:"生日"},"holiday":{py:"jiàqī",zh:"假期"},"weekend":{py:"zhōumò",zh:"周末"},"plan":{py:"jìhuà",zh:"计划"},"meeting":{py:"huìyì",zh:"会议"},"salary":{py:"gōngzī",zh:"工资"},"boss":{py:"lǎobǎn",zh:"老板"},"colleague":{py:"tóngshì",zh:"同事"},"customer":{py:"kèhù",zh:"客户"},"change":{py:"gǎibiàn",zh:"改变"},"continue":{py:"jìxù",zh:"继续"},"stop":{py:"tíng",zh:"停"},"start":{py:"kāishǐ",zh:"开始"},"finish":{py:"jiéshù",zh:"结束"},"succeed":{py:"chénggōng",zh:"成功"},"fail":{py:"shībài",zh:"失败"},"choose":{py:"xuǎnzé",zh:"选择"},"decide":{py:"juédìng",zh:"决定"},"agree":{py:"tóngyì",zh:"同意"},"promise":{py:"chéngnuò",zh:"承诺"},"believe":{py:"xiāngxìn",zh:"相信"},"hope":{py:"xīwàng",zh:"希望"},"dream":{py:"mèng",zh:"梦"},"feel":{py:"gǎnjué",zh:"感觉"},"probably":{py:"kěnéng",zh:"可能"},"certainly":{py:"yídìng",zh:"一定"}
+  };
+  const BUILTIN_PHRASES = {
+    "freak out":{py:"zhuākuáng",zh:"抓狂"}, "give up":{py:"fàngqì",zh:"放弃"}, "find out":{py:"fāxiàn",zh:"发现"},
+    "figure out":{py:"nòngmíngbai",zh:"弄明白"}, "look forward to":{py:"qídài",zh:"期待"}, "get along":{py:"xiāngchǔ",zh:"相处"},
+    "come up with":{py:"xiǎngchū",zh:"想出"}, "take care of":{py:"zhàogù",zh:"照顾"}, "show up":{py:"chūxiàn",zh:"出现"},
+    "hang out":{py:"xiánguàng",zh:"闲逛"}, "break up":{py:"fēnshǒu",zh:"分手"}, "calm down":{py:"lěngjìng",zh:"冷静"},
+    "wake up":{py:"xǐng",zh:"醒"}, "turn on":{py:"dǎkāi",zh:"打开"}, "turn off":{py:"guāndiào",zh:"关掉"},
+    "deal with":{py:"chǔlǐ",zh:"处理"}, "of course":{py:"dāngrán",zh:"当然"}, "by the way":{py:"shùnbiàn shuō",zh:"顺便说"},
+    "in fact":{py:"qíshí",zh:"其实"}, "at least":{py:"zhìshǎo",zh:"至少"}
+  };
+
+  const STORAGE_PROGRESS = "zh-reader-progress";
+  const STORAGE_CUSTOM_WORDS = "zh-reader-custom-words";
+  const STORAGE_CUSTOM_PHRASES = "zh-reader-custom-phrases";
+  const STATS_KEY = "zh-tone-trainer-stats";
+
+  const TONE_MAP = {
+    "ā":1,"á":2,"ǎ":3,"à":4, "ē":1,"é":2,"ě":3,"è":4, "ī":1,"í":2,"ǐ":3,"ì":4,
+    "ō":1,"ó":2,"ǒ":3,"ò":4, "ū":1,"ú":2,"ǔ":3,"ù":4, "ǖ":1,"ǘ":2,"ǚ":3,"ǜ":4
+  };
+  const TONE_SYMBOLS = { 1: "ˉ", 2: "ˊ", 3: "ˇ", 4: "ˋ" };
+
+  let zhVoice = null;
+  function pickVoice(){
+    if (!window.speechSynthesis) return;
+    const voices = speechSynthesis.getVoices();
+    zhVoice = voices.find(v => v.lang === "zh-CN") || voices.find(v => v.lang && v.lang.startsWith("zh")) || null;
+  }
+  if (window.speechSynthesis) { pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
+  function speakZh(text){
+    if (!window.speechSynthesis || !text) return;
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = "zh-CN"; if (zhVoice) u.voice = zhVoice; u.rate = 0.8;
+    speechSynthesis.speak(u);
+  }
+
+  function extractTones(py){
+    const tones = [];
+    for (const ch of py) { if (TONE_MAP[ch]) tones.push(TONE_MAP[ch]); }
+    return tones;
+  }
+
+  function loadDict(){
+    let customWords = {}, customPhrases = {};
+    try { customWords = JSON.parse(localStorage.getItem(STORAGE_CUSTOM_WORDS) || "{}"); } catch(e){}
+    try { customPhrases = JSON.parse(localStorage.getItem(STORAGE_CUSTOM_PHRASES) || "{}"); } catch(e){}
+    const words = Object.assign({}, BUILTIN_WORDS, customWords);
+    const phrases = Object.assign({}, BUILTIN_PHRASES, customPhrases);
+    return { words, phrases };
+  }
+
+  function loadProgress(){
+    try {
+      const raw = localStorage.getItem(STORAGE_PROGRESS);
+      if (raw) return JSON.parse(raw);
+    } catch(e){}
+    return { exposures: {}, sessions: 0, level: 1 };
+  }
+  function saveProgress(p){
+    try { localStorage.setItem(STORAGE_PROGRESS, JSON.stringify(p)); } catch(e){}
+  }
+  function bumpProgressExposure(key){
+    const progress = loadProgress();
+    const e = progress.exposures[key];
+    const count = e ? (typeof e === "number" ? e : (e.count || 0)) : 0;
+    const verified = e ? (typeof e === "number" ? 0 : (e.verified || 0)) : 0;
+    // a correct answer here is an active recall test, not passive reading —
+    // it counts toward "verified" (real mastery), same as dashboard review.
+    progress.exposures[key] = { count: count + 1, verified: verified + 1, lastSeen: Date.now() };
+    saveProgress(progress);
+  }
+
+  function loadStats(){
+    try {
+      const raw = localStorage.getItem(STATS_KEY);
+      if (raw) return JSON.parse(raw);
+    } catch(e){}
+    return {
+      tone: { correct: 0, total: 0, streak: 0, best: 0 },
+      meaning: { correct: 0, total: 0, streak: 0, best: 0 }
+    };
+  }
+  function saveStats(s){ try { localStorage.setItem(STATS_KEY, JSON.stringify(s)); } catch(e){} }
+
+  let stats = loadStats();
+  let mode = "tone";
+  let current = null;
+
+  function renderStats(){
+    const s = stats[mode];
+    document.getElementById("stat-correct").textContent = s.correct;
+    document.getElementById("stat-total").textContent = s.total;
+    document.getElementById("stat-streak").textContent = s.streak;
+    document.getElementById("stat-best").textContent = s.best;
+  }
+
+  function pickRandom(arr){ return arr[Math.floor(Math.random() * arr.length)]; }
+
+  function encounteredKeys(){
+    const progress = loadProgress();
+    const exposures = progress.exposures || {};
+    return new Set(Object.keys(exposures).filter(k => {
+      const e = exposures[k];
+      const count = typeof e === "number" ? e : (e && e.count) || 0;
+      return count > 0;
+    }));
+  }
+
+  function buildToneRound(){
+    const { words } = loadDict();
+    const encountered = encounteredKeys();
+    const pool = Object.keys(words)
+      .filter(en => encountered.has(en))
+      .map(en => ({ en, entry: words[en], tones: extractTones(words[en].py) }))
+      .filter(w => w.tones.length === 1);
+    if (!pool.length) return null;
+    return pickRandom(pool);
+  }
+
+  function buildMeaningRound(){
+    const { words, phrases } = loadDict();
+    const encountered = encounteredKeys();
+    const all = [
+      ...Object.keys(words).map(en => ({ en, entry: words[en], key: en })),
+      ...Object.keys(phrases).map(en => ({ en, entry: phrases[en], key: en }))
+    ];
+    // only test on words/phrases you've actually seen in Reading Bridge —
+    // testing on ones you've never encountered is just blind guessing.
+    const seenPool = all.filter(e => encountered.has(e.en));
+    if (seenPool.length < 1) return null;
+    const correct = pickRandom(seenPool);
+    // distractors: prefer other encountered words too, fall back to the
+    // wider dictionary only if you don't have enough seen words yet
+    const distractors = [];
+    const triedFrom = seenPool.length > 4 ? seenPool : all;
+    let attempts = 0;
+    while (distractors.length < 3 && attempts < 200) {
+      attempts++;
+      const cand = pickRandom(triedFrom);
+      if (cand.en !== correct.en && !distractors.find(d => d.en === cand.en)) distractors.push(cand);
+    }
+    if (distractors.length < 3) return null; // not enough vocabulary yet
+    const options = [correct, ...distractors].sort(() => Math.random() - 0.5);
+    return { correct, options };
+  }
+
+  function renderGame(){
+    const area = document.getElementById("game-area");
+
+    if (mode === "tone") {
+      current = buildToneRound();
+      if (!current) {
+        area.innerHTML = `<div class="empty">Пока нет односложных слов, которые ты уже встречал в Reading Bridge — почитай что-нибудь там сначала, потом возвращайся сюда практиковать тоны.</div>`;
+        return;
+      }
+      area.innerHTML = `
+        <div class="card">
+          <button class="audio-btn" id="play-btn">🔊 Слушать</button>
+          <div class="replay-hint">Нажми ещё раз, если не расслышал</div>
+          <div class="tone-options">
+            <button class="tone-btn" data-tone="1">${TONE_SYMBOLS[1]}<span class="num">1-й тон</span></button>
+            <button class="tone-btn" data-tone="2">${TONE_SYMBOLS[2]}<span class="num">2-й тон</span></button>
+            <button class="tone-btn" data-tone="3">${TONE_SYMBOLS[3]}<span class="num">3-й тон</span></button>
+            <button class="tone-btn" data-tone="4">${TONE_SYMBOLS[4]}<span class="num">4-й тон</span></button>
+          </div>
+          <div class="feedback" id="feedback"></div>
+        </div>`;
+      document.getElementById("play-btn").addEventListener("click", () => speakZh(current.entry.zh || current.entry.py));
+      speakZh(current.entry.zh || current.entry.py);
+      area.querySelectorAll(".tone-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const picked = parseInt(btn.dataset.tone, 10);
+          const isCorrect = picked === current.tones[0];
+          handleAnswer(isCorrect, current.en, `${current.entry.py} — ${current.en}`, current.entry.zh, false);
+        });
+      });
+    } else {
+      current = buildMeaningRound();
+      if (!current) {
+        area.innerHTML = `<div class="empty">Пока мало слов, которые ты уже встречал в Reading Bridge (нужно хотя бы 4) — почитай что-нибудь там, встреченные слова появятся тут для практики.</div>`;
+        return;
+      }
+      area.innerHTML = `
+        <div class="card">
+          <button class="audio-btn" id="play-btn">🔊 Слушать</button>
+          <div class="replay-hint">Нажми ещё раз, если не расслышал</div>
+          <div class="meaning-options">
+            ${current.options.map(o => `<button class="meaning-btn" data-en="${o.en}">${o.en}</button>`).join("")}
+          </div>
+          <div class="feedback" id="feedback"></div>
+        </div>`;
+      document.getElementById("play-btn").addEventListener("click", () => speakZh(current.correct.entry.zh || current.correct.entry.py));
+      speakZh(current.correct.entry.zh || current.correct.entry.py);
+      area.querySelectorAll(".meaning-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const isCorrect = btn.dataset.en === current.correct.en;
+          const isPhrase = current.correct.entry.zh && Object.keys(BUILTIN_PHRASES).concat(Object.keys(JSON.parse(localStorage.getItem(STORAGE_CUSTOM_PHRASES) || "{}"))).includes(current.correct.en);
+          handleAnswer(isCorrect, current.correct.en, `${current.correct.entry.py} — ${current.correct.en}`, current.correct.entry.zh, isPhrase);
+        });
+      });
+    }
+  }
+
+  function handleAnswer(isCorrect, key, answerText, zh, isPhrase){
+    const s = stats[mode];
+    s.total += 1;
+    if (isCorrect) {
+      s.correct += 1; s.streak += 1; s.best = Math.max(s.best, s.streak);
+      bumpProgressExposure(key);
+    } else {
+      s.streak = 0;
+    }
+    saveStats(stats);
+    renderStats();
+
+    const fb = document.getElementById("feedback");
+    fb.className = "feedback " + (isCorrect ? "correct" : "wrong");
+    fb.innerHTML = `
+      <div>${isCorrect ? "Верно!" : "Не совсем"}</div>
+      <div class="answer ${isPhrase ? 'phrase-style' : ''}">${answerText}</div>
+      <button class="next-btn" id="next-btn">Дальше →</button>
+    `;
+    document.getElementById("next-btn").addEventListener("click", renderGame);
+    area_disable();
+  }
+
+  function area_disable(){
+    document.querySelectorAll(".tone-btn, .meaning-btn").forEach(b => b.disabled = true);
+  }
+
+  document.getElementById("mode-tone").addEventListener("click", () => {
+    mode = "tone";
+    document.getElementById("mode-tone").classList.add("active");
+    document.getElementById("mode-meaning").classList.remove("active");
+    renderStats(); renderGame();
+  });
+  document.getElementById("mode-meaning").addEventListener("click", () => {
+    mode = "meaning";
+    document.getElementById("mode-meaning").classList.add("active");
+    document.getElementById("mode-tone").classList.remove("active");
+    renderStats(); renderGame();
+  });
+
+  renderStats();
+  renderGame();
+})();
+</script>
+</body>
+</html>
