@@ -40,6 +40,11 @@
   <div class="subtitle">Локальный набор инструментов для изучения китайского</div>
 
   <div class="grid">
+    <a class="tool-card" href="dictionary.html">
+      <div class="tool-icon">📚</div>
+      <div class="tool-name">Словарь</div>
+      <div class="tool-desc">Все твои слова в одном месте: добавляй, отмечай «знаю», смотри статус. Начни отсюда.</div>
+    </a>
     <a class="tool-card" href="reading-bridge.html">
       <div class="tool-icon">📖</div>
       <div class="tool-name">Reading Bridge</div>
@@ -114,19 +119,25 @@
       }
 
       // merge extension's custom words/phrases INTO this page's localStorage
-      let localWords = {}, localPhrases = {};
+      let localWords = {}, localPhrases = {}, localKnown = {};
       try { localWords = JSON.parse(localStorage.getItem("zh-reader-custom-words") || "{}"); } catch(e){}
       try { localPhrases = JSON.parse(localStorage.getItem("zh-reader-custom-phrases") || "{}"); } catch(e){}
+      try { localKnown = JSON.parse(localStorage.getItem("zh-reader-known-words") || "{}"); } catch(e){}
       const mergedWords = Object.assign({}, response.customWords || {}, localWords);
       const mergedPhrases = Object.assign({}, response.customPhrases || {}, localPhrases);
       localStorage.setItem("zh-reader-custom-words", JSON.stringify(mergedWords));
       localStorage.setItem("zh-reader-custom-phrases", JSON.stringify(mergedPhrases));
 
-      // push the merged set back to the extension too, so both sides end up equal
-      chrome.runtime.sendMessage(extId, { action: "mergeWords", customWords: mergedWords, customPhrases: mergedPhrases }, (res2) => {
-        const wCount = Object.keys(mergedWords).length;
-        const pCount = Object.keys(mergedPhrases).length;
-        msg.textContent = `Готово: ${wCount} слов, ${pCount} фраз теперь одинаковы в обеих сторонах.`;
+      // push the merged custom words back, AND replace the extension's known-words
+      // list wholesale with the app's — the app is the source of truth for
+      // "which HSK words am I actually allowed to be quizzed/replaced with".
+      chrome.runtime.sendMessage(extId, { action: "mergeWords", customWords: mergedWords, customPhrases: mergedPhrases }, () => {
+        chrome.runtime.sendMessage(extId, { action: "setKnownWords", knownWords: localKnown }, () => {
+          const wCount = Object.keys(mergedWords).length;
+          const pCount = Object.keys(mergedPhrases).length;
+          const kCount = Object.keys(localKnown).length;
+          msg.textContent = `Готово: ${wCount} своих слов, ${pCount} фраз синхронизированы; ${kCount} отмеченных «знаю» отправлены в расширение (оно берёт список только из приложения).`;
+        });
       });
     });
   });

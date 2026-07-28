@@ -4,6 +4,7 @@ Reading Bridge — локальный набор (standalone suite)
 Что внутри:
 - index.html          — стартовая страница со ссылками на всё
 - reading-bridge.html — чтение с заменой слов на pinyin + звук
+- dictionary.html      — управление словарём: добавление, «знаю», статус
 - dashboard.html       — прогресс по словарю + повторение почти забытого
 - tone-trainer.html    — тренажёр на слух: тоны и значения
 - village.html         — долгосрочная геймификация (деревня)

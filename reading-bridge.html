@@ -10,6 +10,7 @@ if (!window.storage) {
 </script>
 <div style="max-width:900px;margin:0 auto;padding:14px 22px 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
   <a href="index.html" style="font-size:12.5px;color:#3c6e5e;text-decoration:none;">← Назад ко всем инструментам</a>
+  <a href="dictionary.html" style="font-size:12.5px;color:#a3492f;text-decoration:none;margin-left:16px;font-weight:600;">📚 Открыть словарь</a>
 </div>
 <div id="zh-reader-root" data-reading-bridge-suite="true"></div>
 <style>
@@ -67,7 +68,7 @@ textarea#zr-input:focus { outline: 2px solid var(--jade); outline-offset: 1px; }
 #zr-output { font-size: 18px; line-height: 2.3; padding: 18px 20px; background: #fffdf9; border: 1px solid var(--line); border-radius: 8px; min-height: 60px; }
 #zr-output:empty::before { content: "Вставь текст выше и нажми «Заменить слова» — здесь появится твой текст с китайскими вкраплениями."; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 13px; color: var(--ink-soft); font-style: italic; }
 
-.zh-wrap { display: inline-block; white-space: nowrap; }
+.zh-wrap { display: inline-flex; align-items: stretch; vertical-align: middle; }
 .zh-word { display:inline-block; background: var(--pinyin-bg); color: var(--jade-deep); padding: 1px 6px; border-radius: 4px 0 0 4px; cursor: pointer; font-weight: 600; border-bottom: 1.5px dotted var(--jade); position: relative; transition: background 0.15s ease; }
 .zh-word.zh-phrase { background: var(--phrase-bg); color: var(--rust); border-bottom-style: solid; }
 .zh-word:hover { background: #d3e3da; }
@@ -77,7 +78,7 @@ textarea#zr-input:focus { outline: 2px solid var(--jade); outline-offset: 1px; }
 .zh-word.mastered { box-shadow: inset 0 -2px 0 var(--rust); }
 .zh-word ruby { ruby-position: over; }
 .zh-word rt { font-size: 0.55em; color: var(--jade); font-weight: 500; user-select: none; }
-.zh-audio-btn { display:inline-block; background: var(--jade-deep); color: var(--paper); border: none; border-radius: 0 4px 4px 0; font-size: 11px; line-height: 1; padding: 0 5px; cursor: pointer; vertical-align: top; height: 100%; }
+.zh-audio-btn { display:flex; align-items:center; background: var(--jade-deep); color: var(--paper); border: none; border-radius: 0 4px 4px 0; font-size: 11px; line-height: 1; padding: 0 5px; cursor: pointer; }
 .zh-audio-btn:hover { background: var(--jade); }
 .zh-audio-btn:focus-visible { outline: 2px solid var(--rust); }
 
@@ -735,9 +736,12 @@ textarea#zr-input:focus { outline: 2px solid var(--jade); outline-offset: 1px; }
 
   $("#zr-add-btn").addEventListener("click", async () => {
     const en = $("#zr-en-input").value.trim().toLowerCase().replace(/\s+/g, " ");
-    const py = $("#zr-py-input").value.trim();
+    let py = $("#zr-py-input").value.trim();
     const zh = $("#zr-zh-input").value.trim();
     if (!en || !py) { $("#zr-add-msg").textContent = "Заполни хотя бы слово/фразу и pinyin."; return; }
+    // safety net: if it still looks like numbered-tone pinyin (letters+digit),
+    // convert automatically so forgetting to press "цифры→◌́" doesn't save raw digits
+    if (/[a-zA-Züv]+[1-5]/i.test(py)) py = convertNumberedPinyin(py);
     if (en.includes(" ")) {
       customPhrases[en] = { py, zh: zh || "" };
       await saveCustomPhrases();
