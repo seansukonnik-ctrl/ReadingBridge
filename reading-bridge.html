@@ -117,7 +117,7 @@ textarea#zr-input:focus { outline: 2px solid var(--jade); outline-offset: 1px; }
     "yes":{py:"duì",zh:"对"},"no":{py:"bù",zh:"不"},"not":{py:"bù",zh:"不"},
     "is":{py:"shì",zh:"是"},"am":{py:"shì",zh:"是"},"are":{py:"shì",zh:"是"},
     "have":{py:"yǒu",zh:"有"},"has":{py:"yǒu",zh:"有"},
-    "want":{py:"xiǎng yào",zh:"想要"},"like":{py:"xǐhuan",zh:"喜欢"},"love":{py:"ài",zh:"爱"},
+    "want":{py:"xiǎng yào",zh:"想要"},"love":{py:"ài",zh:"爱"},
     "go":{py:"qù",zh:"去"},"come":{py:"lái",zh:"来"},"eat":{py:"chī",zh:"吃"},"drink":{py:"hē",zh:"喝"},
     "see":{py:"kànjiàn",zh:"看见"},"look":{py:"kàn",zh:"看"},"watch":{py:"kàn",zh:"看"},"listen":{py:"tīng",zh:"听"},
     "say":{py:"shuō",zh:"说"},"speak":{py:"shuō",zh:"说"},"talk":{py:"shuōhuà",zh:"说话"},
@@ -533,6 +533,28 @@ textarea#zr-input:focus { outline: 2px solid var(--jade); outline-offset: 1px; }
     });
   }
 
+  // Word-substitution can't handle English constructions where a word's
+  // meaning depends on what follows it — "one of many" isn't "yī of many".
+  // These are known-bad (word, next-word) pairs: skip replacing the first
+  // word specifically in these combinations, even if it's otherwise active.
+  const EXCLUDE_PAIRS = new Set([
+    "one|of", "some|of", "all|of", "many|of", "because|of", "out|of",
+    "in|front", "in|spite", "in|terms", "in|favor", "in|case",
+    "up|to", "due|to", "close|to", "next|to", "according|to",
+    "right|now", "right|here", "right|away",
+    "so|that", "so|far", "so|much", "so|many",
+    "such|as", "as|well", "as|long"
+  ]);
+  function findNextWord(arr, idx){
+    for (let j = idx + 1; j < arr.length; j++) {
+      const t = arr[j];
+      if (!t) continue;
+      if (/^[a-zA-Z']+$/.test(t)) return t.toLowerCase();
+      if (t.trim()) return null; // hit real punctuation/other content — stop looking
+    }
+    return null;
+  }
+
   function processText(text){
     const wd = activeWordDict();
     const pd = activePhraseDict();
@@ -575,9 +597,13 @@ textarea#zr-input:focus { outline: 2px solid var(--jade); outline-offset: 1px; }
         if (decisions[seg.key]) return renderSpan(seg.value, seg.key, pd[seg.key], true);
         return seg.value;
       }
-      return tokenizeWords(seg.value).map(tok => {
+      return tokenizeWords(seg.value).map((tok, idx, arr) => {
         const lower = tok.toLowerCase();
-        if (wd[lower] && decisions[lower]) return renderSpan(tok, lower, wd[lower], false);
+        if (wd[lower] && decisions[lower]) {
+          const nextWord = findNextWord(arr, idx);
+          if (nextWord && EXCLUDE_PAIRS.has(lower + "|" + nextWord)) return tok;
+          return renderSpan(tok, lower, wd[lower], false);
+        }
         return tok;
       }).join("");
     }).join("");

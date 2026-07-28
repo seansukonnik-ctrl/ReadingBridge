@@ -84,8 +84,12 @@
     <div style="font-size:12px; margin:8px 0;">Работает, если страница открыта через <code>https://твой-логин.github.io/...</code> (GitHub Pages) или через локальный сервер (<code>http://localhost</code>) — но НЕ через двойной клик по файлу (<code>file://</code>). ID расширения смотри в <code>chrome://extensions</code> (нужен Developer mode).</div>
     <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
       <input type="text" id="ext-id-input" placeholder="ID расширения" style="padding:8px 10px; border:1px solid var(--line); border-radius:6px; font-size:12.5px; flex:1; min-width:200px;" />
-      <button id="ext-sync-btn" style="padding:8px 14px; border-radius:6px; border:1px solid var(--jade-deep); background:var(--jade-deep); color:var(--paper); cursor:pointer; font-size:12.5px; font-weight:600;">Синхронизировать словарь</button>
     </div>
+    <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-top:10px;">
+      <button id="ext-push-btn" style="padding:8px 14px; border-radius:6px; border:1px solid var(--jade-deep); background:var(--jade-deep); color:var(--paper); cursor:pointer; font-size:12.5px; font-weight:600;">⬆️ Отправить словарь приложения в расширение</button>
+      <button id="ext-pull-btn" style="padding:8px 14px; border-radius:6px; border:1px solid var(--jade-deep); background:transparent; color:var(--jade-deep); cursor:pointer; font-size:12.5px; font-weight:600;">⬇️ Импортировать слова ИЗ расширения (разово)</button>
+    </div>
+    <div class="hint" style="margin:8px 0 0; font-size:11px; color:var(--ink-soft);">Приложение — источник правды. «Отправить» полностью <b>заменяет</b> словарь расширения тем, что сейчас в приложении (удалённое здесь исчезнет и там). «Импортировать» — на случай, если что-то добавил в попапе расширения и хочешь перенести это сюда, тоже разово и вручную.</div>
     <div id="ext-sync-msg" style="margin-top:8px; font-size:12.5px; color:var(--jade-deep);"></div>
   </div>
 
@@ -100,45 +104,69 @@
   const savedExtId = localStorage.getItem(EXT_ID_KEY);
   if (savedExtId) document.getElementById("ext-id-input").value = savedExtId;
 
-  document.getElementById("ext-sync-btn").addEventListener("click", () => {
-    const msg = document.getElementById("ext-sync-msg");
+  function getExtId(msg){
     const extId = document.getElementById("ext-id-input").value.trim();
-    if (!extId) { msg.textContent = "Впиши ID расширения из chrome://extensions."; return; }
+    if (!extId) { msg.textContent = "Впиши ID расширения из chrome://extensions."; return null; }
     localStorage.setItem(EXT_ID_KEY, extId);
-
     if (!window.chrome || !chrome.runtime || !chrome.runtime.sendMessage) {
       msg.textContent = "chrome.runtime недоступен — открой эту страницу через https://... (GitHub Pages) или http://localhost, не через файл напрямую.";
-      return;
+      return null;
     }
+    return extId;
+  }
 
-    msg.textContent = "Соединяюсь...";
-    chrome.runtime.sendMessage(extId, { action: "getState" }, (response) => {
-      if (chrome.runtime.lastError || !response) {
-        msg.textContent = "Не удалось связаться с расширением: " + (chrome.runtime.lastError ? chrome.runtime.lastError.message : "нет ответа") + ". Проверь ID расширения, что оно обновлено (Reload в chrome://extensions) и что страница открыта через https://...github.io или localhost.";
+  function readLocalDict(){
+    let words = {}, phrases = {}, known = {};
+    try { words = JSON.parse(localStorage.getItem("zh-reader-custom-words") || "{}"); } catch(e){}
+    try { phrases = JSON.parse(localStorage.getItem("zh-reader-custom-phrases") || "{}"); } catch(e){}
+    try { known = JSON.parse(localStorage.getItem("zh-reader-known-words") || "{}"); } catch(e){}
+    return { words, phrases, known };
+  }
+
+  // PUSH: app → extension, full REPLACE. This is the main, source-of-truth
+  // direction — anything deleted in the app disappears from the extension
+  // too, instead of quietly resurrecting on every sync like a merge would.
+  document.getElementById("ext-push-btn").addEventListener("click", () => {
+    const msg = document.getElementById("ext-sync-msg");
+    const extId = getExtId(msg);
+    if (!extId) return;
+
+    const { words, phrases, known } = readLocalDict();
+    msg.textContent = "Отправляю...";
+    chrome.runtime.sendMessage(extId, { action: "setCustomWords", customWords: words, customPhrases: phrases }, (res1) => {
+      if (chrome.runtime.lastError || !res1) {
+        msg.textContent = "Не удалось связаться с расширением: " + (chrome.runtime.lastError ? chrome.runtime.lastError.message : "нет ответа") + ". Проверь ID и что расширение обновлено (Reload в chrome://extensions).";
         return;
       }
+      chrome.runtime.sendMessage(extId, { action: "setKnownWords", knownWords: known }, () => {
+        const wCount = Object.keys(words).length;
+        const pCount = Object.keys(phrases).length;
+        const kCount = Object.keys(known).length;
+        msg.textContent = `Готово: расширение теперь точно как приложение — ${wCount} своих слов, ${pCount} фраз, ${kCount} отмеченных «знаю».`;
+      });
+    });
+  });
 
-      // merge extension's custom words/phrases INTO this page's localStorage
-      let localWords = {}, localPhrases = {}, localKnown = {};
-      try { localWords = JSON.parse(localStorage.getItem("zh-reader-custom-words") || "{}"); } catch(e){}
-      try { localPhrases = JSON.parse(localStorage.getItem("zh-reader-custom-phrases") || "{}"); } catch(e){}
-      try { localKnown = JSON.parse(localStorage.getItem("zh-reader-known-words") || "{}"); } catch(e){}
-      const mergedWords = Object.assign({}, response.customWords || {}, localWords);
-      const mergedPhrases = Object.assign({}, response.customPhrases || {}, localPhrases);
+  // PULL: extension → app, one-time opt-in import (does NOT auto-merge on
+  // every sync, so it can't resurrect things you've already deleted).
+  document.getElementById("ext-pull-btn").addEventListener("click", () => {
+    const msg = document.getElementById("ext-sync-msg");
+    const extId = getExtId(msg);
+    if (!extId) return;
+
+    msg.textContent = "Импортирую...";
+    chrome.runtime.sendMessage(extId, { action: "getState" }, (response) => {
+      if (chrome.runtime.lastError || !response) {
+        msg.textContent = "Не удалось связаться с расширением: " + (chrome.runtime.lastError ? chrome.runtime.lastError.message : "нет ответа") + ".";
+        return;
+      }
+      const local = readLocalDict();
+      const mergedWords = Object.assign({}, local.words, response.customWords || {});
+      const mergedPhrases = Object.assign({}, local.phrases, response.customPhrases || {});
       localStorage.setItem("zh-reader-custom-words", JSON.stringify(mergedWords));
       localStorage.setItem("zh-reader-custom-phrases", JSON.stringify(mergedPhrases));
-
-      // push the merged custom words back, AND replace the extension's known-words
-      // list wholesale with the app's — the app is the source of truth for
-      // "which HSK words am I actually allowed to be quizzed/replaced with".
-      chrome.runtime.sendMessage(extId, { action: "mergeWords", customWords: mergedWords, customPhrases: mergedPhrases }, () => {
-        chrome.runtime.sendMessage(extId, { action: "setKnownWords", knownWords: localKnown }, () => {
-          const wCount = Object.keys(mergedWords).length;
-          const pCount = Object.keys(mergedPhrases).length;
-          const kCount = Object.keys(localKnown).length;
-          msg.textContent = `Готово: ${wCount} своих слов, ${pCount} фраз синхронизированы; ${kCount} отмеченных «знаю» отправлены в расширение (оно берёт список только из приложения).`;
-        });
-      });
+      const added = Object.keys(mergedWords).length - Object.keys(local.words).length + Object.keys(mergedPhrases).length - Object.keys(local.phrases).length;
+      msg.textContent = `Импортировано в приложение: ${added} новых записей из расширения. Не забудь потом нажать «Отправить», чтобы обе стороны снова совпадали.`;
     });
   });
 </script>
